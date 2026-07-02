@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>千年一晤 · 古今相叙</title>
+  <style>
+    :root {
+      --bg: #0a0a14;
+      --panel-bg: rgba(16, 16, 32, 0.9);
+      --gold: #c9a84c;
+      --gold-light: #e8d48b;
+      --cream: #f5f0e1;
+      --text: #e0d8c8;
+      --text-dim: #8a8578;
+      --border: rgba(201, 168, 76, 0.25);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "STSong","SimSun","Noto Serif SC","Source Han Serif SC",serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh; width: 100vw; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+
+    .header {
+      position: relative; z-index: 30;
+      padding: 8px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(180deg, rgba(10,10,20,0.95) 0%, rgba(10,10,20,0.6) 100%);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .header .title {
+      font-size: 1.3rem; color: var(--gold); letter-spacing: 0.12em;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .header .title .icon { font-size: 1.4rem; }
+    .header .status { font-size: 0.8rem; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #555; transition: all .3s; }
+    .status-dot.active { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+    .status-dot.speaking { background: var(--gold); box-shadow: 0 0 8px var(--gold); animation: glowPulse .8s infinite alternate; }
+    @keyframes glowPulse { from { box-shadow: 0 0 4px var(--gold); } to { box-shadow: 0 0 14px var(--gold); } }
+    .status-dot.listening { background: #2196f3; box-shadow: 0 0 8px #2196f3; animation: glowPulse2 .8s infinite alternate; }
+    @keyframes glowPulse2 { from { box-shadow: 0 0 4px #2196f3; } to { box-shadow: 0 0 14px #2196f3; } }
+
+    .main-container { position: relative; z-index: 5; flex: 1; display: flex; overflow: hidden; }
+
+    /* 场景区 — 默认显示暗色背景，摄像头覆盖其上 */
+    .scene-panel {
+      flex: 1; position: relative; overflow: hidden; min-width: 0;
+      background: radial-gradient(ellipse at 30% 50%, #1a1a2e 0%, #0a0a14 70%);
+    }
+
+    .camera-bg {
+      position: absolute; inset: 0; z-index: 2;
+    }
+    .camera-bg video {
+      width: 100%; height: 100%; object-fit: cover;
+      transform: scaleX(-1); /* 镜像 */
+      filter: brightness(0.65) saturate(0.7);
+    }
+    .camera-fallback {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 30% 50%, #1a1a2e 0%, #0a0a14 70%);
+    }
+    .camera-fallback .fallback-text {
+      color: rgba(201,168,76,0.18); font-size: 1.2rem; letter-spacing: 0.3em;
+    }
+
+    /* Canvas 角色层 */
+    #char-canvas {
+      position: absolute; inset: 0; z-index: 3;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* 暗角遮罩 */
+    .vignette {
+      position: absolute; inset: 0; z-index: 4; pointer-events: none;
+      background: radial-gradient(ellipse at 70% 50%, transparent 30%, rgba(10,10,20,0.55) 85%);
+    }
+
+    .loading-character {
+      position: absolute; inset: 0; z-index: 3; pointer-events: none;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 1; transition: opacity .5s;
+    }
+    .loading-character.hidden { opacity: 0; }
+    .loading-character .spinner {
+      width: 40px; height: 40px; border: 3px solid rgba(201,168,76,0.2);
+      border-top-color: var(--gold); border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 对话面板 */
+    .side-panel {
+      width: 320px; display: flex; flex-direction: column;
+      background: var(--panel-bg); border-left: 1px solid var(--border); z-index: 20;
+      flex-shrink: 0;
+      backdrop-filter: blur(10px);
+    }
+    .dialogue-area {
+      flex: 1; overflow-y: auto; padding: 14px 12px;
+      display: flex; flex-direction: column; gap: 10px;
+      scroll-behavior: smooth;
+    }
+    .dialogue-area::-webkit-scrollbar { width: 3px; }
+    .dialogue-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .msg {
+      max-width: 94%; padding: 8px 12px; border-radius: 10px;
+      font-size: 0.85rem; line-height: 1.6;
+      animation: msgIn .3s ease-out;
+    }
+    @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .msg.user {
+      align-self: flex-end;
+      background: rgba(201,168,76,.12); border: 1px solid rgba(201,168,76,.25);
+      color: var(--cream); border-bottom-right-radius: 3px;
+    }
+    .msg.ai {
+      align-self: flex-start;
+      background: rgba(93,138,124,.12); border: 1px solid rgba(93,138,124,.2);
+      color: var(--text); border-bottom-left-radius: 3px;
+    }
+    .msg .sender { font-size: 0.68rem; margin-bottom: 3px; font-weight: bold; letter-spacing: .04em; }
+    .msg.user .sender { color: #ff9800; }
+    .msg.ai .sender { color: #5d8a7c; }
+
+    .msg.ai .speaking-indicator {
+      display: none; font-size: 0.65rem; color: var(--gold);
+      margin-top: 4px; animation: pulseFade 1s infinite alternate;
+    }
+    .msg.ai.speaking .speaking-indicator { display: block; }
+    .msg.ai.speaking { border-color: rgba(201,168,76,0.4); }
+    @keyframes pulseFade { from { opacity: 0.4; } to { opacity: 1; } }
+
+    .input-area {
+      padding: 10px 14px; border-top: 1px solid var(--border);
+      display: flex; gap: 6px; align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn.auto-mode {
+      width: auto; height: 32px; border-radius: 16px; padding: 0 12px;
+      font-size: 0.72rem; letter-spacing: 0.03em;
+      background: rgba(76,175,80,0.15); border-color: rgba(76,175,80,0.4);
+      color: #8bc34a;
+    }
+    .btn.auto-mode.off {
+      background: rgba(255,255,255,0.03); border-color: var(--border);
+      color: var(--text-dim);
+    }
+    .input-area input {
+      flex: 1; background: rgba(255,255,255,.05); border: 1px solid var(--border);
+      border-radius: 18px; padding: 9px 14px; color: var(--cream);
+      font-size: 0.85rem; outline: none; transition: border-color .3s;
+    }
+    .input-area input:focus { border-color: var(--gold); }
+    .input-area input::placeholder { color: var(--text-dim); }
+
+    .btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid var(--border); background: rgba(255,255,255,.05);
+      color: var(--gold); cursor: pointer; font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .3s; flex-shrink: 0;
+    }
+    .btn:hover { background: rgba(201,168,76,.15); }
+    .btn:active { transform: scale(.93); }
+    .btn.recording { background: rgba(244,67,54,.3); border-color: #f44336; animation: recPulse 1.2s infinite; }
+    @keyframes recPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(244,67,54,.4); } 50% { box-shadow: 0 0 0 12px rgba(244,67,54,0); } }
+    .btn.send { background: var(--gold); color: #1a1a2e; border: none; }
+    .btn.send:hover { background: var(--gold-light); }
+
+    .toast {
+      position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 100;
+      background: rgba(0,0,0,.85); color: var(--gold); padding: 8px 20px;
+      border-radius: 18px; font-size: 0.8rem; border: 1px solid var(--border);
+      animation: toastIn 2s ease-out forwards;
+    }
+    @keyframes toastIn {
+      0% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+      10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      80% { opacity: 1; } 100% { opacity: 0; }
+    }
+
+    /* 设置面板 */
+    .settings-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,.7);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .3s;
+    }
+    .settings-overlay.open { opacity: 1; pointer-events: auto; }
+    .settings-panel {
+      background: #1a1a2e; border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px; width: 90%; max-width: 400px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.6);
+    }
+    .settings-panel h3 {
+      color: var(--gold); font-size: 1.1rem; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .settings-panel label {
+      display: block; color: var(--text-dim); font-size: .78rem; margin-bottom: 5px;
+    }
+    .settings-panel input {
+      width: 100%; padding: 10px 12px; border-radius: 8px;
+      background: rgba(255,255,255,.06); border: 1px solid var(--border);
+      color: var(--cream); font-size: .85rem; margin-bottom: 12px;
+    }
+    .settings-panel .btn-row {
+      display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;
+    }
+    .settings-panel .btn-sm {
+      padding: 6px 18px; border-radius: 8px; border: 1px solid var(--border);
+      background: rgba(255,255,255,.05); color: var(--text); cursor: pointer;
+      font-size: .8rem;
+    }
+    .settings-panel .btn-sm.primary { background: var(--gold); color: #1a1a2e; border: none; }
+    .settings-panel .status-msg { font-size: .75rem; margin-top: 8px; }
+    .settings-panel .status-msg.ok { color: #4caf50; }
+    .settings-panel .status-msg.warn { color: #ff9800; }
+    .header .btn-settings {
+      background: none; border: 1px solid var(--border); color: var(--text-dim);
+      font-size: .85rem; padding: 4px 12px; border-radius: 12px; cursor: pointer;
+      transition: all .3s;
+    }
+    .header .btn-settings:hover { color: var(--gold); border-color: var(--gold); }
+    .header .btn-settings.ai-active { color: #4caf50; border-color: #4caf50; }
+
+    @media (max-width: 768px) {
+      .main-container { flex-direction: column; }
+      .scene-panel { flex: 1; min-height: 50%; }
+      .side-panel { width: 100%; max-height: 40%; border-left: none; border-top: 1px solid var(--border); }
+      .header .title { font-size: 1rem; }
+      .vignette { background: radial-gradient(ellipse at 70% 55%, transparent 20%, rgba(10,10,20,0.5) 80%); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">
+    <span class="icon">🏛️</span>
+    <span>千年一晤 · 古今相叙</span>
+  </div>
+  <div class="status">
+    <button class="btn-settings" id="btnSettings" title="AI 设置">⚙️ AI模型</button>
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">就绪</span>
+  </div>
+</div>
+
+  <div class="main-container">
+    <div class="scene-panel" id="scenePanel">
+      <!-- 兜底暗色背景（默认可见） -->
+      <div class="camera-fallback" id="cameraFallback">
+        <div class="fallback-text">千年一晤 · 古今相叙</div>
+      </div>
+      <!-- 摄像头覆盖在兜底背景之上 -->
+      <div class="camera-bg" id="cameraBg">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+      </div>
+      <!-- 角色Canvas层 -->
+      <canvas id="char-canvas"></canvas>
+      <div class="loading-character" id="loadingCharacter"><div class="spinner"></div></div>
+      <!-- 暗角 -->
+      <div class="vignette"></div>
+    </div>
+
+  <div class="side-panel">
+    <div class="dialogue-area" id="dialogueArea">
+      <div class="msg ai">
+        <div class="sender">🏛️ 先生</div>
+        <div>有礼了。老夫静待千载，今朝终得相逢一叙。</div>
+      </div>
+    </div>
+    <div class="input-area">
+      <button class="btn auto-mode" id="autoBtn" title="自动对话模式">🔄 自动</button>
+      <input type="text" id="textInput" placeholder="输入你想说的话..." />
+      <button class="btn send" id="sendBtn" title="发送">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- 设置面板 -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-panel">
+    <h3>AI 模型设置</h3>
+    <label>DeepSeek API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-..." />
+    <label>System Prompt（角色设定）</label>
+    <input type="text" id="systemPromptInput"
+      value="你是古代清正廉明的官员，50岁左右，说话温文尔雅、引经据典，用半文言白话。对方是来请教廉洁文化、道德修养之人。回答时：1)引用古代廉政典故（包拯、海瑞、于成龙等）；2)结合现代法规精神；3)语风温和敦厚如长者；4)回答简洁，控制在150字以内。若对方自述困惑或悔过，耐心劝导、指正道义。" />
+    <div class="btn-row">
+      <button class="btn-sm" id="btnClearKey">清除 Key</button>
+      <button class="btn-sm primary" id="btnSaveKey">保存设置</button>
+    </div>
+    <div class="status-msg" id="settingsMsg"></div>
+  </div>
+</div>
+
+<script>
+// ========== DOM ==========
+const canvas = document.getElementById('char-canvas');
+const ctx = canvas.getContext('2d');
+const dialogueArea = document.getElementById('dialogueArea');
+const textInput = document.getElementById('textInput');
+const sendBtn = document.getElementById('sendBtn');
+const autoBtn = document.getElementById('autoBtn');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const cameraVideo = document.getElementById('cameraVideo');
+const scenePanel = document.getElementById('scenePanel');
+const btnSettings = document.getElementById('btnSettings');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const systemPromptInput = document.getElementById('systemPromptInput');
+const btnSaveKey = document.getElementById('btnSaveKey');
+const btnClearKey = document.getElementById('btnClearKey');
+const settingsMsg = document.getElementById('settingsMsg');
+const loadingCharacter = document.getElementById('loadingCharacter');
+
+// ========== 画布自适应 ==========
+function resizeCanvas() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = scenePanel.clientWidth;
+  const h = scenePanel.clientHeight;
+  if (w !== canvas.clientWidth * dpr || h !== canvas.clientHeight * dpr) {
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+  }
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ========== 状态 ==========
+const state = {
+  isListening: false,
+  isSpeaking: false,
+  isThinking: false,
+  autoDialogue: true,  // 默认开启自动语音对话
+  recognition: null,
+  cameraStream: null,
+  cameraActive: false,
+  time: 0,
+  mouthOpen: 0,
+  loaded: false,
+  aiEnabled: false,    // DeepSeek API 是否已配置
+  conversationHistory: [],  // 对话历史（最近10轮）
+};
+
+// DeepSeek API 配置
+const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
+const CONVERSATION_MAX = 10; // 保留最近10轮对话
+
+function setStatus(type) {
+  statusDot.className = 'status-dot';
+  switch (type) {
+    case 'ready': statusDot.classList.add('active'); statusText.textContent = '就绪'; break;
+    case 'listening': statusDot.classList.add('listening'); statusText.textContent = '聆听中...'; break;
+    case 'speaking': statusDot.classList.add('speaking'); statusText.textContent = '讲述中...'; break;
+    case 'thinking': statusText.textContent = '思考中...'; break;
+  }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+function addMessage(sender, text) {
+  const div = document.createElement('div');
+  div.className = `msg ${sender}`;
+  div.innerHTML = `<div class="sender">${sender === 'user' ? '💬 你' : '🏛️ 先生'}</div><div>${text}</div>${sender === 'ai' ? '<div class="speaking-indicator">🔊 朗读中...</div>' : ''}`;
+  dialogueArea.appendChild(div);
+  dialogueArea.scrollTop = dialogueArea.scrollHeight;
+  return div; // 返回元素引用，后续可标记朗读状态
+}
+
+// ========== 摄像头 ==========
+async function startCamera() {
+  try {
+    state.cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false
+    });
+    cameraVideo.srcObject = state.cameraStream;
+    // 视频成功播放后，摄像头画面会覆盖在兜底背景之上，无需隐藏 fallback
+    state.cameraActive = true;
+  } catch (e) {
+    console.log('摄像头未启用:', e.message);
+    state.cameraActive = false;
+    showToast('摄像头未启用，已切换为默认背景');
+  }
+}
+
+// ========== 语音识别 ==========
+let speechErrorCount = 0;
+const statusTextDefault = statusText.textContent;
+
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    autoBtn.style.opacity = '0.4';
+    autoBtn.title = '当前浏览器不支持语音识别，请用 Chrome 或 Edge';
+    autoBtn.textContent = '⚠️ 不支持语音';
+    autoBtn.classList.add('off');
+    statusText.textContent = '浏览器不支持语音';
+    return;
+  }
+  const rec = new SR();
+  rec.lang = 'zh-CN';
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+
+  rec.onstart = () => {
+    state.isListening = true;
+    speechErrorCount = 0; // 重置错误计数
+    setStatus('listening');
+  };
+
+  rec.onresult = (e) => {
+    const text = e.results[0][0].transcript.trim();
+    if (text) {
+      showToast(`"${text}"`);
+      handleUserInput(text);
+    }
+  };
+
+  rec.onerror = (e) => {
+    state.isListening = false;
+    const err = e.error;
+
+    if (err === 'no-speech') {
+      setStatus('ready');
+      // 自动模式静默重试
+      if (state.autoDialogue && !state.isSpeaking && !state.isThinking) {
+        setTimeout(() => {
+          if (state.autoDialogue && !state.isListening) {
+            try { rec.start(); } catch(_) {}
+          }
+        }, 300);
+      }
+      return;
+    }
+
+    if (err === 'aborted') {
+      setStatus('ready');
+      return;
+    }
+
+    // 明确错误：给出提示并停止自动重试
+    speechErrorCount++;
+    const messages = {
+      'not-allowed': '请允许浏览器使用麦克风权限',
+      'audio-capture': '未检测到麦克风设备',
+      'network': '语音服务连接失败，请检查网络',
+      'service-not-allowed': '当前网络不支持语音服务',
+      'language-not-supported': '浏览器不支持中文语音',
+    };
+    const msg = messages[err] || `语音识别异常 (${err})`;
+    showToast(msg);
+    statusText.textContent = `语音异常: ${err}`;
+
+    // 错误次数过多则切换到手动模式
+    if (speechErrorCount >= 3) {
+      state.autoDialogue = false;
+      autoBtn.classList.add('off');
+      autoBtn.textContent = '🔄 手动模式';
+      showToast('语音服务异常，已自动切换为手动模式');
+    }
+  };
+
+  rec.onend = () => {
+    state.isListening = false;
+    // 仅在正常结束且自动模式下重试，不重试非零错误计数
+    if (state.autoDialogue && speechErrorCount === 0 && !state.isSpeaking && !state.isThinking) {
+      setTimeout(() => {
+        if (state.autoDialogue && !state.isListening && !state.isSpeaking && !state.isThinking) {
+          try { rec.start(); } catch(_) {}
+        }
+      }, 400);
+    } else if (!state.autoDialogue) {
+      setStatus('ready');
+    }
+  };
+
+  state.recognition = rec;
+}
+
+// ========== 自动对话模式切换 ==========
+autoBtn.addEventListener('click', () => {
+  state.autoDialogue = !state.autoDialogue;
+
+  if (state.autoDialogue) {
+    speechErrorCount = 0;
+    autoBtn.classList.remove('off');
+    autoBtn.textContent = '🔄 自动对话中';
+    showToast('已开启自动语音对话，直接说话即可');
+    if (state.recognition && !state.isSpeaking && !state.isThinking) {
+      try { state.recognition.start(); } catch(_) {
+        showToast('语音启动失败，请确认麦克风权限');
+      }
+    }
+  } else {
+    autoBtn.classList.add('off');
+    autoBtn.textContent = '🔄 手动模式';
+    statusText.textContent = statusTextDefault;
+    showToast('已切换为手动输入模式');
+    if (state.isListening && state.recognition) state.recognition.stop();
+  }
+});
+
+// ========== 微软 Edge TTS（WebSocket，国内直连，无需 Key）==========
+const EDGE_TTS_URL = 'wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4';
+const TTS_VOICE = 'zh-CN-YunxiNeural'; // 云希 — 男声，温润磁性，适合古风先生
+
+// 生成 UUID v4
+function uuid4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+async function speakText(text, msgEl) {
+  if (msgEl) {
+    msgEl.classList.add('speaking');
+    const indicator = msgEl.querySelector('.speaking-indicator');
+    if (indicator) {
+      indicator.textContent = '🔊 朗读中...';
+      indicator.style.display = 'block';
+      indicator.style.animation = 'pulseFade 1s infinite alternate';
+    }
+  }
+
+  state.isSpeaking = true;
+  setStatus('speaking');
+
+  try {
+    const audioBlob = await edgeTTS(text);
+    const audioUrl = URL.createObjectURL(audioBlob);
+    await playAudio(audioUrl);
+    URL.revokeObjectURL(audioUrl);
+  } catch (e) {
+    console.error('TTS 失败:', e);
+    if (msgEl) {
+      const indicator = msgEl.querySelector('.speaking-indicator');
+      if (indicator) {
+        indicator.textContent = '🔇 朗读失败';
+        indicator.style.animation = 'none';
+        indicator.style.color = '#a66';
+      }
+    }
+  }
+
+  state.isSpeaking = false;
+  if (msgEl) {
+    msgEl.classList.remove('speaking');
+    const indicator = msgEl.querySelector('.speaking-indicator');
+    if (indicator) indicator.style.display = 'none';
+  }
+  setStatus('ready');
+  restartListeningIfNeeded();
+}
+
+async function edgeTTS(text) {
+  // SSML 格式，停顿更自然
+  const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="zh-CN">
+    <voice name="${TTS_VOICE}">
+      <mstts:silence type="Sentenceboundary" value="200ms"/>
+      ${escapeXml(text)}
+    </voice>
+  </speak>`;
+
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(EDGE_TTS_URL);
+    const audioChunks = [];
+    let configSent = false;
+    let timer = setTimeout(() => { ws.close(); reject(new Error('TTS 超时')); }, 15000);
+
+    ws.binaryType = 'arraybuffer';
+
+    ws.onopen = () => {
+      // 1) 发送配置
+      const configMsg = `X-Timestamp:${new Date().toISOString()}\r\n` +
+        `Content-Type:application/json; charset=utf-8\r\n` +
+        `Path:speech.config\r\n\r\n` +
+        JSON.stringify({
+          context: {
+            synthesis: {
+              audio: {
+                metadataoptions: { sentenceBoundaryEnabled: "false", wordBoundaryEnabled: "false" },
+                outputFormat: "audio-24khz-48kbitrate-mono-mp3"
+              }
+            }
+          }
+        });
+      ws.send(configMsg);
+      configSent = true;
+    };
+
+    ws.onmessage = (event) => {
+      const data = event.data;
+      if (typeof data === 'string') {
+        // 可能是服务端就绪消息或错误
+        if (data.includes('turn.end')) {
+          clearTimeout(timer);
+          ws.close();
+          const totalLength = audioChunks.reduce((s, c) => s + c.byteLength, 0);
+          if (totalLength > 0) {
+            const merged = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const chunk of audioChunks) {
+              merged.set(new Uint8Array(chunk), offset);
+              offset += chunk.byteLength;
+            }
+            resolve(new Blob([merged], { type: 'audio/mp3' }));
+          } else {
+            reject(new Error('无音频数据'));
+          }
+          return;
+        }
+        // 收到文本消息时，可能是 headers 或 path 信息，接着发送 SSML
+        if (data.includes('Path:turn.start') || data.includes('X-StreamId')) {
+          const requestId = uuid4().replace(/-/g, '');
+          const ssmlMsg = `X-RequestId:${requestId}\r\n` +
+            `Content-Type:application/ssml+xml\r\n` +
+            `X-Timestamp:${new Date().toISOString()}\r\n` +
+            `Path:ssml\r\n\r\n` +
+            ssml;
+          ws.send(ssmlMsg);
+        }
+      } else {
+        // 二进制音频数据 — 跳过前导边界标记
+        let bytes = new Uint8Array(data);
+
+        // 移除 "Path:audio\r\n" 头部（二进制消息开头可能含有）
+        const headerEnd = findHeaderEnd(bytes);
+        if (headerEnd > 0) {
+          bytes = bytes.slice(headerEnd);
+        }
+
+        if (bytes.length > 0) audioChunks.push(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+      }
+    };
+
+    ws.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error('TTS WebSocket 连接失败'));
+    };
+
+    ws.onclose = () => {
+      clearTimeout(timer);
+    };
+  });
+}
+
+// 在二进制数据中查找 "\r\n\r\n" 分隔位置
+function findHeaderEnd(bytes) {
+  for (let i = 0; i < bytes.length - 3; i++) {
+    if (bytes[i] === 13 && bytes[i+1] === 10 && bytes[i+2] === 13 && bytes[i+3] === 10) {
+      return i + 4;
+    }
+  }
+  return -1;
+}
+
+function escapeXml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function playAudio(url) {
+  return new Promise((resolve) => {
+    const a = new Audio(url);
+    a.onended = () => resolve();
+    a.onerror = () => resolve(); // 播放失败不阻塞流程
+    a.play().catch(() => resolve());
+  });
+}
+
+function restartListeningIfNeeded() {
+  if (state.autoDialogue && speechErrorCount === 0 && state.recognition && !state.isThinking) {
+    setTimeout(() => {
+      if (state.autoDialogue && speechErrorCount === 0 && !state.isSpeaking && !state.isThinking && !state.isListening) {
+        try { state.recognition.start(); } catch(_) {}
+      }
+    }, 400);
+  }
+}
+
+// ========== 图片加载与背景去除 ==========
+const characterImg = new Image();
+characterImg.src = 'character.jpg';
+
+let displayCharacter = null; // 当前实际显示的图片（先原图，后去底图）
+
+characterImg.onload = () => {
+  displayCharacter = characterImg;
+  state.loaded = true;
+  loadingCharacter.classList.add('hidden');
+
+  // 后台异步去底，不阻塞显示
+  setTimeout(() => {
+    processedCharacter = removeWhiteBackground(characterImg);
+    processedCharacter.onload = () => { displayCharacter = processedCharacter; };
+  }, 2);
+};
+
+characterImg.onerror = () => {
+  console.error('角色图片加载失败');
+  loadingCharacter.innerHTML = '<div style="color:var(--gold)">图片加载失败</div>';
+};
+
+function removeWhiteBackground(img) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  const octx = off.getContext('2d');
+  octx.drawImage(img, 0, 0);
+  const imgData = octx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+  const total = w * h;
+
+  // ====== 第一遍：标记纯白/近白背景像素 ======
+  const bgMask = new Uint8Array(total);
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i+1], b = data[i+2];
+    const avg = (r + g + b) / 3;
+    const diff = Math.max(r, g, b) - Math.min(r, g, b);
+    // 必须很亮（>245）、几乎无色差（<20）、且RGB都大
+    if (r > 245 && g > 245 && b > 245 && avg > 248 && diff < 20) {
+      bgMask[i >> 2] = 1;
+      data[i + 3] = 0;
+    }
+  }
+
+  // ====== 第二遍：清除白色噪点（孤立的高亮像素群） ======
+  // 使用泛洪填充：遍历所有非背景但高亮的像素，如果连通区域 < 80 像素就全部去掉
+  const visited = new Uint8Array(total);
+  const isBright = new Uint8Array(total);
+  for (let i = 0; i < data.length; i += 4) {
+    const idx = i >> 2;
+    if (bgMask[idx]) continue;
+    const r = data[i], g = data[i+1], b = data[i+2];
+    const avg = (r + g + b) / 3;
+    const diff = Math.max(r, g, b) - Math.min(r, g, b);
+    // 标记高亮且低饱和的像素为"可疑白点"
+    if (avg > 210 && diff < 35) isBright[idx] = 1;
+  }
+
+  // BFS 泛洪找连通的高亮区域
+  for (let i = 0; i < total; i++) {
+    if (!isBright[i] || visited[i] || bgMask[i]) continue;
+    // BFS
+    const queue = [i];
+    const region = [i];
+    visited[i] = 1;
+    let head = 0;
+    while (head < queue.length) {
+      const cur = queue[head++];
+      const y = Math.floor(cur / w), x = cur % w;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const ny = y + dy, nx = x + dx;
+          if (ny < 0 || ny >= h || nx < 0 || nx >= w) continue;
+          const ni = ny * w + nx;
+          if (visited[ni] || bgMask[ni] || !isBright[ni]) continue;
+          visited[ni] = 1;
+          queue.push(ni);
+          region.push(ni);
+        }
+      }
+    }
+    // 小区域（<80px）→ 全部设为透明（是白云/噪点/反光）
+    // 大区域 → 保留（可能是浅色衣物）
+    if (region.length < 80) {
+      for (const ri of region) {
+        bgMask[ri] = 1;
+        data[ri << 2 | 3] = 0;
+      }
+    }
+  }
+
+  // ====== 第三遍：清除右下角水印（"豆包AI生成"） ======
+  // 水印通常在图片右下角，占 18% 宽 × 10% 高
+  const wmLeft = Math.floor(w * 0.82);
+  const wmTop = Math.floor(h * 0.88);
+  for (let y = wmTop; y < h; y++) {
+    for (let x = wmLeft; x < w; x++) {
+      const idx = y * w + x;
+      if (bgMask[idx]) continue; // 已经是背景
+      const pi = idx << 2;
+      const r = data[pi], g = data[pi+1], b = data[pi+2];
+      const avg = (r + g + b) / 3;
+      // 水印文字特征：白色或浅灰色，高亮度低饱和
+      // 只要亮度 > 180 且接近灰度（RGB分量接近），就是水印/文字，直接去掉
+      const diffRg = Math.abs(r - g);
+      const diffRb = Math.abs(r - b);
+      const diffGb = Math.abs(g - b);
+      if (avg > 170 && diffRg < 40 && diffRb < 40 && diffGb < 40) {
+        bgMask[idx] = 1;
+        data[pi + 3] = 0;
+      }
+    }
+  }
+
+  // ====== 第四遍：边缘羽化 — 仅处理与背景相邻的真实边缘 ======
+  for (let y = 2; y < h - 2; y++) {
+    for (let x = 2; x < w - 2; x++) {
+      const idx = y * w + x;
+      if (bgMask[idx]) continue;
+      // 统计3x3邻域中背景像素数
+      let cnt = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++)
+          if (bgMask[(y + dy) * w + (x + dx)]) cnt++;
+      // 需要足够多背景邻居才羽化（保护人物主体）
+      if (cnt >= 5) {
+        const pi = idx << 2;
+        const brightness = (data[pi] + data[pi+1] + data[pi+2]) / 3;
+        // 暗色区域不羽化（人物核心）
+        if (brightness < 80) continue;
+        // 渐进羽化
+        let alpha = 1 - (cnt - 4) / 10;
+        alpha = Math.max(0.2, alpha);
+        if (brightness > 200) alpha = Math.max(0.55, alpha); // 浅色衣物保留更多
+        data[pi + 3] = Math.floor(data[pi + 3] * alpha);
+      }
+    }
+  }
+
+  octx.putImageData(imgData, 0, 0);
+  const out = new Image();
+  out.src = off.toDataURL('image/png');
+  return out;
+}
+
+let processedCharacter = null;
+
+// ========== 角色位置与尺寸 ==========
+// 图片中人物关键点的相对位置（基于原图比例）
+const CHAR_REFS = {
+  mouthX: 0.56,   // 嘴部水平位置（脸在右侧，嘴略偏右）
+  mouthY: 0.335,  // 嘴部垂直位置（在胡须与上唇之间）
+  mouthW: 0.055,  // 嘴部宽度
+  mouthH: 0.022,  // 嘴部基准高度
+  handX: 0.45,    // 右手（扶腰带处）
+  handY: 0.73,    // 手部垂直位置
+};
+
+function getCharLayout() {
+  const w = scenePanel.clientWidth;
+  const h = scenePanel.clientHeight;
+  // 人物占画面高度约 85%，保持左侧站立
+  const maxH = h * 0.85;
+  const imgAspect = (displayCharacter || characterImg).naturalWidth / (displayCharacter || characterImg).naturalHeight || 0.75;
+  const drawH = Math.min(maxH, w * 0.6 * (1 / imgAspect));
+  const drawW = drawH * imgAspect;
+  const x = w * 0.08;  // 靠左，留一点边距
+  const y = (h - drawH);  // 底部对齐
+  return { x, y, w: drawW, h: drawH };
+}
+
+// ========== 说话时嘴部微动 ==========
+function drawSpeakingMouth(layout, openAmount) {
+  if (openAmount < 0.05) return; // 几乎闭嘴时不绘制
+  const mx = layout.x + layout.w * CHAR_REFS.mouthX;
+  const my = layout.y + layout.h * CHAR_REFS.mouthY;
+  const mw = layout.w * CHAR_REFS.mouthW;
+  const mh = layout.h * CHAR_REFS.mouthH * (1 + openAmount * 0.6);
+
+  ctx.save();
+  ctx.translate(mx, my);
+
+  // 仅一条极淡的深色唇缝，模拟嘴巴微张
+  ctx.fillStyle = `rgba(100, 60, 55, ${0.12 + openAmount * 0.15})`;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, mw * 0.38, mh * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawHandAura(layout, glow) {
+  const hx = layout.x + layout.w * CHAR_REFS.handX;
+  const hy = layout.y + layout.h * CHAR_REFS.handY;
+  const size = Math.min(layout.w, layout.h) * 0.12 * glow; // 缩小光圈
+
+  // 极淡的暖光晕
+  const grad = ctx.createRadialGradient(hx, hy, 0, hx, hy, size);
+  grad.addColorStop(0, 'rgba(255, 215, 130, 0.15)');
+  grad.addColorStop(0.5, 'rgba(201, 168, 76, 0.06)');
+  grad.addColorStop(1, 'rgba(201, 168, 76, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(hx, hy, size, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 极淡微光点（减少数量和亮度）
+  ctx.fillStyle = `rgba(255, 230, 160, ${0.15 * glow})`;
+  for (let i = 0; i < 2; i++) {
+    const angle = (state.time || 0) * 0.6 + i * Math.PI;
+    const r = size * (0.3 + i * 0.12);
+    const px = hx + Math.cos(angle) * r;
+    const py = hy + Math.sin(angle) * r * 0.4;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.2 + i * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ========== 主渲染 ==========
+const clock = { last: performance.now() };
+
+function animate(now) {
+  requestAnimationFrame(animate);
+
+  const dt = Math.min((now - clock.last) / 1000, 0.1);
+  clock.last = now;
+
+  resizeCanvas();
+  const w = scenePanel.clientWidth;
+  const h = scenePanel.clientHeight;
+  if (w === 0 || h === 0) return;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (!state.loaded || !displayCharacter) return;
+
+  const layout = getCharLayout();
+
+  // 说话时：整体轻微呼吸起伏 + 手势光晕
+  let bobX = 0, bobY = 0, scale = 1, auraGlow = 0, headTilt = 0;
+  if (state.isSpeaking) {
+    state.time += dt * 5;
+    const breath = Math.sin(state.time) * 0.5 + 0.5; // 0 ~ 1
+    const breath2 = Math.sin(state.time * 0.55) * 0.5 + 0.5;
+
+    bobY = breath * layout.h * 0.005;           // 身体微起伏
+    bobX = Math.sin(state.time * 0.5) * layout.w * 0.0015; // 极微左右
+    scale = 1 + breath * 0.003;                 // 微呼吸缩放
+    headTilt = (breath2 - 0.5) * 0.005;         // 头部微微点动
+    auraGlow = 0.4 + breath * 0.3;
+
+    // 嘴部微张节拍
+    const open = (Math.sin(state.time * 1.6) * 0.5 + 0.5) * 0.4 + 0.05;
+    state.mouthOpen = state.mouthOpen * 0.65 + open * 0.35;
+  } else {
+    state.mouthOpen = state.mouthOpen * 0.8;
+  }
+
+  ctx.save();
+  const cx = layout.x + layout.w * 0.45;  // 旋转中心：人物躯干中线
+  const cy = layout.y + layout.h * 0.55;  // 旋转中心：胸腰位置
+  ctx.translate(cx, cy);
+  ctx.rotate(headTilt);
+  ctx.scale(scale, scale);
+  ctx.translate(-cx + bobX, -cy + bobY);
+  ctx.drawImage(displayCharacter, layout.x, layout.y, layout.w, layout.h);
+
+  // 说话时叠加嘴部与手势光晕（在变换坐标系内，始终与人物贴合）
+  if (state.isSpeaking) {
+    drawHandAura(layout, auraGlow);
+    drawSpeakingMouth(layout, state.mouthOpen);
+  }
+
+  ctx.restore();
+}
+
+// ========== 廉洁文化知识库 ==========
+const knowledgeBase = [
+  { keywords: ['你好','您好','问候','打招呼','嗨','hi','hello'], response: '有礼了。老夫静待千载，今朝终得相逢一叙。', category: 'greeting' },
+  { keywords: ['什么是廉洁','廉洁文化','廉洁是什么','廉洁定义','什么叫廉洁'],
+    response: '廉洁者，清正不贪、克己奉公之谓也。《周礼》有云："以听官府之六计，弊群吏之治：一曰廉善，二曰廉能，三曰廉敬，四曰廉正，五曰廉法，六曰廉辨。"六廉之说，乃我华夏廉政文化之源流。老夫以为，廉洁非独为官者之事，亦是每个人安身立命之根本。',
+    category: 'concept' },
+  { keywords: ['为什么要廉洁','反腐倡廉','为什么反腐','廉洁重要性'],
+    response: '善哉此问！《管子》曰："礼义廉耻，国之四维；四维不张，国乃灭亡。"廉之一维，关乎国运兴衰。老夫纵观古今，贪腐之害甚于洪水猛兽——毁一人之前程、败一家之幸福、伤一国之根基。',
+    category: 'importance' },
+  { keywords: ['包拯','包青天','包公','包大人'],
+    response: '包拯，字希仁，北宋名臣，人称"包青天"。他铁面无私、刚正不阿。曾言："廉者，民之表也；贪者，民之贼也。"任端州知州时，按数征砚，离任"不持一砚归"。其清廉之风，流芳百世。',
+    category: 'story' },
+  { keywords: ['海瑞','海青天'],
+    response: '海瑞，明代著名清官。他一生清贫，刚正不阿。任淳安知县时，穿布袍、吃粗粮，老仆种菜自给。去世时仅有俸金八两、葛布一端、旧衣数件。百姓闻之，罢市痛哭，送葬者百里不绝。',
+    category: 'story' },
+  { keywords: ['于成龙','天下第一廉吏'],
+    response: '于成龙，清初名臣，康熙誉为"天下第一廉吏"。四十五岁出任广西罗城知县，"日食粗粝一盂，粥糜一匙"。官至两江总督，依然粗茶淡饭，百姓称他"于青菜"。他说："做官不能贪，贪则心不正。"',
+    category: 'story' },
+  { keywords: ['杨震','四知','四知拒金','暮夜却金'],
+    response: '东汉杨震，人称"关西孔子"。赴任途中，昌邑县令王密深夜携金来谢："暮夜无知者。"杨震正色道："天知，神知，我知，子知，何谓无知！"王密羞愧而退。慎独方为真君子。',
+    category: 'story' },
+  { keywords: ['子罕','以不贪为宝'],
+    response: '春秋宋国大夫子罕。有人献美玉，子罕不受。献玉者说"玉匠鉴定此乃宝玉"，子罕道："你以玉为宝，我以不贪为宝。若我收了你的玉，你我皆失其宝，不如各守其宝吧！"',
+    category: 'story' },
+  { keywords: ['一钱太守','刘宠'],
+    response: '东汉刘宠，任会稽太守时清廉爱民。离任时几位老人各带百钱送行，刘宠从每人手中取一文钱，行至江边又将钱投入江中还于百姓。后人称"一钱太守"，那江得名"钱清江"。',
+    category: 'story' },
+  { keywords: ['名言','警句','格言','名句','古语'],
+    response: '老夫与君共赏——\n"廉者，民之表也；贪者，民之贼也。"——包拯\n"一丝一粒，我之名节；一厘一毫，民之脂膏。"——张伯行\n"粉身碎骨浑不怕，要留清白在人间。"——于谦\n"清风两袖朝天去，免得闾阎话短长。"——于谦\n愿这些金句，成为你我心中的明灯。',
+    category: 'quotes' },
+  { keywords: ['八项规定','八项'],
+    response: '中央八项规定，乃新时代全面从严治党之开篇之作：改进调查研究、精简会议活动、精简文件简报、规范出访活动、改进警卫工作、改进新闻报道、严格文稿发表、厉行勤俭节约。以小切口推动了大变局。',
+    category: 'policy' },
+  { keywords: ['自律','廉洁自律','如何自律'],
+    response: '自律之道，首在修心。《大学》云："欲修其身者，先正其心。"当从"慎独、慎微、慎初、慎友"做起：慎独者，独处之时亦守规矩；慎微者，小事小节不含糊；慎初者，把好第一道关口；慎友者，择善而交。',
+    category: 'practice' },
+  { keywords: ['修身','齐家','家风','家训'],
+    response: '《大学》曰："欲明明德于天下者，先治其国；欲治其国者，先齐其家；欲齐其家者，先修其身。"家风正则后代正，家风廉则门庭清。你我的言行，便是子女最好的教材。',
+    category: 'practice' },
+  { keywords: ['贪腐','腐败','贪污','危害'],
+    response: '贪腐之害，触目惊心。明代严嵩，权倾朝野，最终家产被抄、孤老贫死；清代和珅，一朝覆灭，赐死狱中。古人云："身后有余忘缩手，眼前无路想回头。"待到无路可退时，悔之晚矣！',
+    category: 'warning' },
+  { keywords: ['谢谢','感谢','多谢','再见','拜拜'],
+    response: '不必客气。清正廉洁乃我辈共同追求，愿你将今日之谈化为明日之行。若有疑问随时来寻老夫。后会有期！',
+    category: 'farewell' },
+  // ===== 廉洁诗词 =====
+  { keywords: ['石灰吟','于谦诗','粉身碎骨','要留清白'],
+    response: '此诗乃明代于谦所作，千古绝唱——\n"千锤万凿出深山，烈火焚烧若等闲。\n粉身碎骨浑不怕，要留清白在人间。"\n于谦以石灰自喻，历经磨难不改清白之志。他一生为官清廉，北京保卫战挽狂澜于既倒，却被诬陷致死。抄家时家中除御赐蟒袍剑器外，别无余财。真乃"要留清白在人间"！',
+    category: 'poem' },
+  { keywords: ['入京','清风两袖','两袖清风','于谦'],
+    response: '于谦《入京》诗云：\n"绢帕蘑菇与线香，本资民用反为殃。\n清风两袖朝天去，免得闾阎话短长。"\n当时官员入京都要带土特产送礼，唯独于谦什么都不带。有人劝他，他举起袖子笑道："唯有清风！"自此"两袖清风"成为清廉代名词。',
+    category: 'poem' },
+  { keywords: ['墨梅','王冕','不要人夸','只留清气'],
+    response: '元代王冕《墨梅》——\n"吾家洗砚池头树，朵朵花开淡墨痕。\n不要人夸好颜色，只留清气满乾坤。"\n以墨梅喻高洁，不慕虚名、不逐浮华，只求一缕清气充盈天地之间。为官做人，当有此境界。',
+    category: 'poem' },
+  { keywords: ['竹石','郑板桥','咬定青山','任尔东西'],
+    response: '郑板桥《竹石》——\n"咬定青山不放松，立根原在破岩中。\n千磨万击还坚劲，任尔东西南北风。"\n郑板桥为官十二载，清廉正直，因赈灾忤逆上司而罢官。离任时仅三头毛驴——一头自骑、一头驮书、一头书童骑。他说"当官不为民做主，不如回家卖红薯"。此诗正是他不屈风骨的写照！',
+    category: 'poem' },
+  { keywords: ['诗词','古诗','诗句','诗歌','朗诵','念首诗'],
+    response: '老夫愿为君吟诵——\n于谦《石灰吟》：千锤万凿出深山，烈火焚烧若等闲。粉身碎骨浑不怕，要留清白在人间。\n郑板桥《竹石》：咬定青山不放松，立根原在破岩中。千磨万击还坚劲，任尔东西南北风。\n王冕《墨梅》：不要人夸好颜色，只留清气满乾坤。\n你还想听哪一首？',
+    category: 'poem' },
+  // ===== 违纪违法场景问答 =====
+  { keywords: ['受贿','贿赂','收钱','收礼','红包','送钱','拿钱办事'],
+    response: '此乃大忌！《刑法》第三百八十五条：国家工作人员利用职务便利索取或非法收受他人财物，为他人谋取利益，即构成受贿罪。轻则纪律处分，重则身陷囹圄。老夫送你四句话：\n"莫伸手，伸手必被捉；\n莫贪心，贪心必招祸。"\n杨震四知"天知地知你知我知"，你以为无人知晓，实则天网恢恢。一失足成千古恨，再回头已百年身！',
+    category: 'violation' },
+  { keywords: ['送礼','送烟酒','送卡','礼尚往来','人情','意思意思'],
+    response: '此等"人情往来"，正是诸多贪腐之始。有人以为"逢年过节收点烟酒不算什么"，殊不知温水煮蛙，终入无底深渊。明朝张居正有言："君子不饮盗泉之水，廉者不受嗟来之食。"若对方有所求而送礼，这便不是人情而是交易。老夫劝你：拿人手短、吃人嘴软，勿以小利误终身！',
+    category: 'violation' },
+  { keywords: ['吃请','请客','请吃饭','饭局','应酬','宴请'],
+    response: '"酒杯一端，原则放宽；筷子一拿，啥都好办。"此言虽诙谐，却道尽吃请之害。中央八项规定明确禁止违规吃喝。一餐饭看似小事，却往往成为围猎干部的第一根绳索。清朝于成龙的"日食粗粝一盂"，才是为官本分。当断则断，不受其扰，方为自保之道。',
+    category: 'violation' },
+  { keywords: ['家属','妻子','孩子','配偶','亲属','儿女','家里人','枕边风'],
+    response: '治家不严，祸起萧墙。不少落马官员便是栽在"枕边风""儿子坑爹"上。《大学》曰："欲齐其家者，先修其身。"严管就是厚爱——对家人严格要求，不让他们打着你的旗号办事，这才是真正的保护。君不见许多贪官在狱中痛哭："我最对不起的就是家人。"早知今日，何必当初！',
+    category: 'violation' },
+  { keywords: ['利益冲突','兼职','经商','办企业','参股','入股'],
+    response: '为官者当公私分明。《公务员法》明确规定不得从事或参与营利性活动、不得在企业兼任职务。老子曰："知足不辱，知止不殆，可以长久。"既入仕途，就当安守清贫俸禄，不可吃着碗里的看着锅里的。利益冲突纵使一时未被发现，终究是悬在头顶之剑。',
+    category: 'violation' },
+  { keywords: ['招标','项目','工程','审批','打招呼','递条子'],
+    response: '工程招标、项目审批之处，正是贪腐高发之地。不少官员以为"自己没拿钱、只是帮朋友打个招呼"就无妨，此言大谬！违规干预插手工程项目，本身就是严重违纪。明朝朱元璋铁腕治贪，剥皮实草以儆效尤。今人虽无此酷刑，但党纪国法之严，断不可心存侥幸。',
+    category: 'violation' },
+  { keywords: ['公款','报销','吃喝','旅游','出国','公车私用'],
+    response: '公款姓公，一分一厘都不能乱花。有人觉得"用公款吃点喝点不算大问题"，此念一生便已偏航。张伯行《禁止馈送檄》有言："一丝一粒，我之名节；一厘一毫，民之脂膏。"一个签字、一张发票看似小事，积少成多便是大恶。勿以恶小而为之，切记！',
+    category: 'violation' },
+  { keywords: ['退休','平安落地','安全着陆','善终'],
+    response: '有人以为退了休就"平安落地"，此乃痴人说梦。终身追责之下，没有"过期作废"的说法。昔日和珅权倾朝野，乾隆一死便被嘉庆下狱赐死——"身后有余忘缩手，眼前无路想回头"。老夫以为，平安落地不在退休之日，而在在职之时——行得正、坐得直，才能善始善终。',
+    category: 'violation' },
+  { keywords: ['灰色收入','擦边球','钻空子','走钢丝','打擦边'],
+    response: '所谓灰色地带、擦边球，不过是自欺欺人。《后汉书》有云："堤溃蚁穴，气泄针芒。"最小的缝隙也能溃堤千里。你以为在"走钢丝"，实则已一脚踏入深渊。党纪国法考量的是实质而非形式，打擦边球者终将自食其果。坦荡做人、清白为官，方为正道。',
+    category: 'violation' },
+  { keywords: ['赌博','炒股','挪用','挪用公款','赌'],
+    response: '赌博与挪用公款常相伴而生。有人因赌欠债，便铤而走险挪用公款，欲"赢回来再还回去"。一步错、步步错，最终无法回头。清代和珅被抄家时家产折合白银八亿两，相当于朝廷十五年财政收入——可这泼天富贵最后又给了他什么呢？只有三尺白绫！不赌不贪，安守本分，方为大智慧。',
+    category: 'violation' },
+  { keywords: ['围猎','被围猎','拉下水','腐蚀','诱惑'],
+    response: '善哉此问！"围猎"二字，道尽贪腐之先兆。商人以利为饵，步步为营，先交朋友再谈生意，待你入局便再无回头之路。《孙子兵法》云："知彼知己，百战不殆。"面对围猎，要清醒——非亲非故为何对你好？无非是看中你手中的权力。守得住清贫、耐得住寂寞、经得起诱惑，方能破"围"而出。',
+    category: 'violation' },
+  { keywords: ['违纪','违法','违规','处分','警告','记过','开除'],
+    response: '党纪严于国法，规矩重于泰山。《纪律处分条例》规定五种处分：警告、严重警告、撤销党内职务、留党察看、开除党籍。政务处分则有警告、记过、记大过、降级、撤职、开除。一纸处分看来无伤筋骨，实则断送半生仕途。古人云："勿以恶小而为之。"一旦记录在案，悔之晚矣！',
+    category: 'violation' },
+  { keywords: ['自首','坦白','投案','主动交代','迷途知返','回头'],
+    response: '善莫大焉！《尚书》曰："过而能改，善莫大焉。"若是已有过错，主动投案自首、如实交代，方为明智之举。越早回头、代价越小。汉朝周处年轻时横行乡里，后幡然悔悟斩蛟射虎为民除害，终成一代名臣。迷途知返，任何时候都不晚！',
+    category: 'violation' },
+  { keywords: ['身边人','秘书','司机','下属','纵容','默许'],
+    response: '身边人打着你的旗号办事，你知晓却不制止——这在法律上可能构成"默许"甚至"纵容"，同样追责。唐朝宰相李义府纵容家人卖官鬻爵，事发后被流放巂州，死于贬所。枕边人、左右手，不能成为违法乱纪的遮羞布。管好自己，更要管好身边人！',
+    category: 'violation' },
+  { keywords: ['扶贫','救济','民生','救灾','低保','惠农','补贴'],
+    response: '民生资金、扶贫款、救灾款——此乃百姓救命之钱，动一分一毫都是丧尽天良！清朝大贪官和珅曾在赈灾粮中掺沙子，饿死无数百姓。孟子曰："庖有肥肉，厩有肥马，民有饥色，野有饿莩，此率兽而食人也。"从民生领域伸手者，罪加一等、万民唾弃！',
+    category: 'violation' },
+];
+
+const fallbackResponses = [
+  '此问颇有见地。"不矜细行，终累大德"，不妨从身边小事做起，日积月累，清风自来。',
+  '嗯，有意思。老夫以为，做人当如青松挺立，不为风霜所动；如莲花出水，不为淤泥所染。你可有具体困惑？',
+  '此事与廉洁要义相通。事无巨细，公道自在人心。不妨从自身做起、从当下做起。你有什么具体想法？',
+  '此乃关乎名节之大事。"一念收敛，则万善来同；一念放恣，则百邪乘衅。"须臾不可放松自律。',
+  '你问得好。多少入狱之人，起初也不过是"举手之劳""盛情难却"。防微杜渐，方为正道。',
+];
+
+// ========== DeepSeek API 对话 ==========
+function getDeepSeekKey() {
+  return localStorage.getItem('deepseek_api_key') || '';
+}
+
+function getSystemPrompt() {
+  return localStorage.getItem('deepseek_system_prompt')
+    || '你是古代清正廉明的官员，50岁左右，说话温文尔雅、引经据典，用半文言白话。对方是来请教廉洁文化、道德修养之人。回答时：1)引用古代廉政典故（包拯、海瑞、于成龙等）；2)结合现代法规精神；3)语风温和敦厚如长者；4)回答简洁，控制在150字以内。若对方自述困惑或悔过，耐心劝导、指正道义。';
+}
+
+async function callDeepSeek(userMessage) {
+  const apiKey = getDeepSeekKey();
+  if (!apiKey) return null;
+
+  // 构建消息列表
+  const messages = [
+    { role: 'system', content: getSystemPrompt() },
+    ...state.conversationHistory,
+    { role: 'user', content: userMessage }
+  ];
+
+  try {
+    const res = await fetch(DEEPSEEK_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: messages,
+        max_tokens: 600,
+        temperature: 0.85,
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('DeepSeek API error:', res.status, err);
+      if (res.status === 401) return '__INVALID_KEY__';
+      if (res.status === 402) return '__NO_BALANCE__';
+      return null;
+    }
+
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    if (!reply) return null;
+
+    // 更新对话历史（保留最近10轮）
+    state.conversationHistory.push(
+      { role: 'user', content: userMessage },
+      { role: 'assistant', content: reply }
+    );
+    if (state.conversationHistory.length > CONVERSATION_MAX * 2) {
+      state.conversationHistory = state.conversationHistory.slice(-CONVERSATION_MAX * 2);
+    }
+
+    return reply;
+  } catch (e) {
+    console.error('DeepSeek API 网络错误:', e);
+    return null;
+  }
+}
+
+// ========== 关键词匹配（本地知识库优先） ==========
+// 返回 { response, source: 'kb' | 'fallback' | 'none' }
+function findResponse(input) {
+  const n = input.toLowerCase().trim();
+  let best = null, bestScore = 0;
+  for (const e of knowledgeBase) {
+    let score = 0;
+    for (const kw of e.keywords) {
+      if (n.includes(kw.toLowerCase())) score += kw.length;
+    }
+    if (score > bestScore) { bestScore = score; best = e; }
+  }
+  if (best && bestScore >= 2) {
+    return { response: best.response, source: 'kb', score: bestScore };
+  }
+  const related = ['廉洁','清廉','反腐','贪','廉','清风','清官','廉政','正直','公正','贿赂','受贿','违纪','违法','送礼','吃请','公款','招标','家属','围猎','挪用','赌博','灰色'];
+  if (related.some(w => n.includes(w))) {
+    return { response: fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)], source: 'fallback' };
+  }
+  return { response: '阁下所言，虽非直接论廉，却也引人深思。万事万物皆有"廉"——处事公道、待人以诚、不取不义之财，皆是廉洁精神的体现。不妨谈谈你对廉洁的看法？', source: 'none' };
+}
+
+// ========== 对话处理 ==========
+async function handleUserInput(text) {
+  if (state.isThinking || !text.trim()) return;
+  state.isThinking = true;
+
+  // 处理期间停止监听
+  if (state.isListening && state.recognition) {
+    try { state.recognition.stop(); } catch(_) {}
+  }
+
+  addMessage('user', text);
+  textInput.value = '';
+  setStatus('thinking');
+
+  let response;
+  let sourceUsed = '';
+
+  // 第一步：始终先搜本地知识库
+  const kbResult = findResponse(text);
+
+  // 第二步：若知识库精确命中（score高），直接返回，不调 API
+  if (kbResult.source === 'kb') {
+    response = kbResult.response;
+    sourceUsed = '本地知识库';
+  }
+  // 第三步：未精确命中但有 DeepSeek Key → 调 AI
+  else if (getDeepSeekKey()) {
+    const aiResponse = await callDeepSeek(text);
+    if (aiResponse === '__INVALID_KEY__') {
+      response = '⚠️ API Key 无效或已过期，请重新设置。【已自动切换为本地知识库】';
+      localStorage.removeItem('deepseek_api_key');
+      updateAiStatus();
+    } else if (aiResponse === '__NO_BALANCE__') {
+      response = '⚠️ API 余额不足，请充值后重试。【已自动切换为本地知识库】';
+      updateAiStatus();
+    } else if (aiResponse) {
+      response = aiResponse;
+      sourceUsed = 'DeepSeek AI';
+    } else {
+      // AI 网络错误，用知识库兜底结果
+      response = kbResult.response;
+      sourceUsed = '本地知识库（AI 不可用）';
+    }
+  }
+  // 第四步：无 Key，用知识库结果
+  else {
+    response = kbResult.response;
+    sourceUsed = '本地知识库';
+  }
+
+  console.log('📨 回复来源:', sourceUsed);
+  const msgEl = addMessage('ai', response);
+
+  // 显示文字 + 微软 Edge TTS 语音朗读
+  speakText(response, msgEl);
+
+  state.isThinking = false;
+  if (!state.autoDialogue) setStatus('ready');
+  restartListeningIfNeeded();
+}
+
+sendBtn.addEventListener('click', () => {
+  const t = textInput.value.trim();
+  if (t) handleUserInput(t);
+});
+
+textInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const t = textInput.value.trim();
+    if (t) handleUserInput(t);
+  }
+});
+
+// ========== 设置面板 ==========
+function updateAiStatus() {
+  const key = getDeepSeekKey();
+  state.aiEnabled = !!key;
+  if (key) {
+    btnSettings.classList.add('ai-active');
+    btnSettings.textContent = 'AI 已连接';
+  } else {
+    btnSettings.classList.remove('ai-active');
+    btnSettings.textContent = 'AI模型';
+  }
+}
+
+btnSettings.addEventListener('click', () => {
+  apiKeyInput.value = getDeepSeekKey();
+  systemPromptInput.value = getSystemPrompt();
+  settingsMsg.textContent = '';
+  settingsMsg.className = 'status-msg';
+  settingsOverlay.classList.add('open');
+});
+
+settingsOverlay.addEventListener('click', (e) => {
+  if (e.target === settingsOverlay) settingsOverlay.classList.remove('open');
+});
+
+btnSaveKey.addEventListener('click', () => {
+  const key = apiKeyInput.value.trim();
+  const prompt = systemPromptInput.value.trim();
+  if (key && !key.startsWith('sk-')) {
+    settingsMsg.textContent = '⚠️ API Key 格式不正确，应以 sk- 开头';
+    settingsMsg.className = 'status-msg warn';
+    return;
+  }
+  if (key) localStorage.setItem('deepseek_api_key', key);
+  else localStorage.removeItem('deepseek_api_key');
+  if (prompt) localStorage.setItem('deepseek_system_prompt', prompt);
+  updateAiStatus();
+  settingsMsg.textContent = key ? '✅ 设置已保存，DeepSeek AI 已启用' : '✅ Key 已清除，使用本地知识库';
+  settingsMsg.className = 'status-msg ok';
+  // 清除旧对话历史（角色可能变了）
+  state.conversationHistory = [];
+  setTimeout(() => settingsOverlay.classList.remove('open'), 1500);
+});
+
+btnClearKey.addEventListener('click', () => {
+  apiKeyInput.value = '';
+  localStorage.removeItem('deepseek_api_key');
+  updateAiStatus();
+  state.conversationHistory = [];
+  settingsMsg.textContent = '✅ Key 已清除，使用本地知识库';
+  settingsMsg.className = 'status-msg ok';
+});
+
+// ========== 启动 ==========
+function init() {
+  resizeCanvas();
+  startCamera();
+  initSpeechRecognition();
+  updateAiStatus();
+  setStatus('ready');
+  clock.last = performance.now();
+  requestAnimationFrame(animate);
+
+  // 默认开启自动语音对话
+  if (state.recognition) {
+    autoBtn.classList.remove('off');
+    autoBtn.textContent = '🔄 自动对话中';
+    setTimeout(() => {
+      try { state.recognition.start(); } catch(_) {
+        showToast('语音启动失败，请点击按钮重试或手动输入');
+      }
+    }, 1200);
+  }
+}
+
+init();
+
+console.log('🏛️  千年一晤 v7.3 — 知识库优先 + DeepSeek AI 备用');
+console.log('  - AI 模型：DeepSeek V3（需配置 Key）');
+console.log('  - 语音合成：Edge TTS WebSocket');
+console.log('  - 自动对话模式：已开启');
+</script>
+</body>
+</html>
