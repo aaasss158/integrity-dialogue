@@ -235,16 +235,71 @@
     .header .btn-settings:hover { color: var(--gold); border-color: var(--gold); }
     .header .btn-settings.ai-active { color: #4caf50; border-color: #4caf50; }
 
+    /* 启动遮罩 */
+    .launch-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: radial-gradient(ellipse at 40% 50%, #1a1a2e 0%, #0a0a14 70%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity .6s ease-out;
+    }
+    .launch-overlay.fade-out { opacity: 0; pointer-events: none; }
+    .launch-overlay .launch-title {
+      font-size: 2.2rem; color: var(--gold); letter-spacing: 0.15em;
+      margin-bottom: 12px;
+      animation: launchGlow 2s ease-in-out infinite alternate;
+    }
+    @keyframes launchGlow {
+      from { text-shadow: 0 0 8px rgba(201,168,76,0.3); }
+      to { text-shadow: 0 0 20px rgba(201,168,76,0.6); }
+    }
+    .launch-overlay .launch-sub {
+      font-size: 0.9rem; color: var(--text-dim); letter-spacing: 0.3em;
+      margin-bottom: 40px;
+    }
+    .launch-overlay .launch-btn {
+      width: 160px; height: 160px; border-radius: 50%;
+      border: 2px solid var(--gold); background: rgba(201,168,76,0.08);
+      color: var(--gold); font-size: 1rem; letter-spacing: 0.1em;
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 6px;
+      transition: all .3s; animation: launchPulse 2s infinite alternate;
+    }
+    @keyframes launchPulse {
+      from { box-shadow: 0 0 15px rgba(201,168,76,0.15); }
+      to { box-shadow: 0 0 40px rgba(201,168,76,0.4); }
+    }
+    .launch-overlay .launch-btn:hover {
+      background: rgba(201,168,76,0.2); transform: scale(1.05);
+    }
+    .launch-overlay .launch-btn .btn-icon { font-size: 2.5rem; }
+    .launch-overlay .launch-hint {
+      font-size: 0.72rem; color: var(--text-dim); margin-top: 20px;
+      max-width: 280px; text-align: center; line-height: 1.6;
+    }
+
     @media (max-width: 768px) {
       .main-container { flex-direction: column; }
       .scene-panel { flex: 1; min-height: 50%; }
       .side-panel { width: 100%; max-height: 40%; border-left: none; border-top: 1px solid var(--border); }
       .header .title { font-size: 1rem; }
       .vignette { background: radial-gradient(ellipse at 70% 55%, transparent 20%, rgba(10,10,20,0.5) 80%); }
+      .launch-overlay .launch-title { font-size: 1.6rem; }
+      .launch-overlay .launch-btn { width: 120px; height: 120px; font-size: 0.85rem; }
+      .launch-overlay .launch-btn .btn-icon { font-size: 2rem; }
     }
   </style>
 </head>
 <body>
+
+<!-- 启动遮罩：点击后解锁音频权限 -->
+<div class="launch-overlay" id="launchOverlay">
+  <div class="launch-title">千年一晤 · 古今相叙</div>
+  <button class="launch-btn" id="launchBtn">
+    <span class="btn-icon">🏛️</span>
+    <span>点击开始</span>
+  </button>
+  <div class="launch-hint">点击按钮解锁语音权限，开始与古人对话。<br>首次使用需点击「AI模型」配置百炼 API Key，语音识别+语音合成+AI对话三合一。</div>
+</div>
 
 <div class="header">
   <div class="title">
@@ -294,13 +349,40 @@
 <div class="settings-overlay" id="settingsOverlay">
   <div class="settings-panel">
     <h3>AI 模型设置</h3>
-    <label>DeepSeek API Key</label>
-    <input type="password" id="apiKeyInput" placeholder="sk-..." />
+    <label>选择 AI 服务</label>
+    <select id="aiProviderSelect">
+      <option value="deepseek">DeepSeek（深度求索）</option>
+      <option value="bailian">阿里百炼（通义千问）</option>
+    </select>
+    <div id="deepseekFields">
+      <label>DeepSeek API Key</label>
+      <input type="password" id="apiKeyInput" placeholder="sk-..." />
+    </div>
+    <div id="bailianFields" style="display:none">
+      <label>阿里百炼 API Key</label>
+      <input type="password" id="bailianKeyInput" placeholder="sk-..." />
+      <small style="color:#c9a861;font-size:0.8em">💡 百炼 Key 同时用于语音识别+语音合成+AI对话，一Key三用</small>
+      <label>百炼对话模型</label>
+      <select id="bailianModelSelect">
+        <option value="qwen-turbo">qwen-turbo（快速）</option>
+        <option value="qwen-plus" selected>qwen-plus（均衡）</option>
+        <option value="qwen-max">qwen-max（最强）</option>
+        <option value="qwen-long">qwen-long（长文本）</option>
+      </select>
+      <label>语音合成音色</label>
+      <select id="ttsVoiceSelect">
+        <option value="libai_v2">李白 · 古代诗仙男（推荐）</option>
+        <option value="longfei_v2">龙飞 · 热血磁性男</option>
+        <option value="longjin_v2">龙津 · 优雅温润男</option>
+        <option value="longxiaochun_v2">龙小淳 · 知性积极女</option>
+        <option value="longlaotie_v2">龙老铁 · 东北直率男</option>
+      </select>
+    </div>
     <label>System Prompt（角色设定）</label>
     <input type="text" id="systemPromptInput"
       value="你是古代清正廉明的官员，50岁左右，说话温文尔雅、引经据典，用半文言白话。对方是来请教廉洁文化、道德修养之人。回答时：1)引用古代廉政典故（包拯、海瑞、于成龙等）；2)结合现代法规精神；3)语风温和敦厚如长者；4)回答简洁，控制在150字以内。若对方自述困惑或悔过，耐心劝导、指正道义。" />
     <div class="btn-row">
-      <button class="btn-sm" id="btnClearKey">清除 Key</button>
+      <button class="btn-sm" id="btnClearKey">清除全部 Key</button>
       <button class="btn-sm primary" id="btnSaveKey">保存设置</button>
     </div>
     <div class="status-msg" id="settingsMsg"></div>
@@ -326,7 +408,28 @@ const systemPromptInput = document.getElementById('systemPromptInput');
 const btnSaveKey = document.getElementById('btnSaveKey');
 const btnClearKey = document.getElementById('btnClearKey');
 const settingsMsg = document.getElementById('settingsMsg');
+const aiProviderSelect = document.getElementById('aiProviderSelect');
+const bailianKeyInput = document.getElementById('bailianKeyInput');
+const bailianModelSelect = document.getElementById('bailianModelSelect');
+const ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
+const deepseekFields = document.getElementById('deepseekFields');
+const bailianFields = document.getElementById('bailianFields');
 const loadingCharacter = document.getElementById('loadingCharacter');
+const launchOverlay = document.getElementById('launchOverlay');
+const launchBtn = document.getElementById('launchBtn');
+
+// ========== AudioContext（解决浏览器 autoplay 限制） ==========
+let audioCtx = null; // 在用户首次交互时创建
+
+function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
 
 // ========== 画布自适应 ==========
 function resizeCanvas() {
@@ -360,9 +463,41 @@ const state = {
   conversationHistory: [],  // 对话历史（最近10轮）
 };
 
-// DeepSeek API 配置
+// AI API 配置
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
+const BAILIAN_API = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
 const CONVERSATION_MAX = 10; // 保留最近10轮对话
+
+// ========== AI Key 管理 ==========
+function getDeepSeekKey() {
+  return localStorage.getItem('deepseek_api_key') || '';
+}
+function getBailianKey() {
+  return localStorage.getItem('bailian_api_key') || '';
+}
+function getBailianModel() {
+  return localStorage.getItem('bailian_model') || 'qwen-plus';
+}
+function getAiProvider() {
+  return localStorage.getItem('ai_provider') || 'deepseek';
+}
+
+// ========== TTS 音色管理 ==========
+function getTtsVoice() {
+  return localStorage.getItem('tts_voice') || 'libai_v2';
+}
+function getActiveApiKey() {
+  const provider = getAiProvider();
+  return provider === 'bailian' ? getBailianKey() : getDeepSeekKey();
+}
+function getActiveApiEndpoint() {
+  const provider = getAiProvider();
+  return provider === 'bailian' ? BAILIAN_API : DEEPSEEK_API;
+}
+function getActiveModel() {
+  const provider = getAiProvider();
+  return provider === 'bailian' ? getBailianModel() : 'deepseek-chat';
+}
 
 function setStatus(type) {
   statusDot.className = 'status-dot';
@@ -406,99 +541,281 @@ async function startCamera() {
   }
 }
 
-// ========== 语音识别 ==========
+// ========== 语音识别（阿里百炼 Paraformer WebSocket） ==========
 let speechErrorCount = 0;
 const statusTextDefault = statusText.textContent;
 
+// Paraformer 实时语音识别客户端
+class ParaformerASR {
+  constructor() {
+    this.ws = null;
+    this.taskId = null;
+    this.audioCtx = null;
+    this.processor = null;
+    this.mediaStream = null;
+    this.running = false;
+    this.currentText = '';  // 当前句子中间结果
+  }
+
+  _uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+  async start() {
+    const apiKey = localStorage.getItem('bailian_api_key') || localStorage.getItem('deepseek_api_key') || '';
+    if (!apiKey) {
+      showToast('⚠️ 请先在设置中配置百炼或 DeepSeek API Key 以启用语音识别');
+      return false;
+    }
+
+    // 获取麦克风
+    try {
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true }
+      });
+    } catch (e) {
+      showToast('请允许浏览器使用麦克风权限');
+      speechErrorCount++;
+      return false;
+    }
+
+    // 建立 WebSocket 连接（API Key 通过 URL 参数传递）
+    const wsUrl = `wss://dashscope.aliyuncs.com/api-ws/v1/inference/?api_key=${encodeURIComponent(apiKey)}`;
+    this.taskId = this._uuid();
+
+    try {
+      this.ws = new WebSocket(wsUrl);
+    } catch (e) {
+      showToast('语音服务连接失败，请检查网络');
+      speechErrorCount++;
+      this._cleanupStream();
+      return false;
+    }
+
+    this.ws.binaryType = 'arraybuffer';
+
+    return new Promise((resolve) => {
+      this.ws.onopen = () => {
+        // 发送 run-task 启动识别
+        const runMsg = JSON.stringify({
+          header: {
+            action: 'run-task',
+            task_id: this.taskId,
+            streaming: 'duplex'
+          },
+          payload: {
+            task_group: 'audio',
+            task: 'asr',
+            function: 'recognition',
+            model: 'paraformer-realtime-v2',
+            parameters: {
+              format: 'pcm',
+              sample_rate: 16000,
+              disfluency_removal_enabled: false,
+              language_hints: ['zh'],
+              punctuation_prediction_enabled: true,
+              inverse_text_normalization_enabled: true
+            },
+            input: {}
+          }
+        });
+        this.ws.send(runMsg);
+      };
+
+      this.ws.onmessage = (ev) => {
+        // 二进制帧跳过（音频回执）
+        if (typeof ev.data !== 'string') return;
+
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch(_) { return; }
+
+        const evt = msg.header?.event;
+        if (evt === 'task-started') {
+          console.log('Paraformer 识别任务启动');
+          this.running = true;
+          speechErrorCount = 0;
+          state.isListening = true;
+          setStatus('listening');
+          this._startAudioCapture();
+          resolve(true);
+        } else if (evt === 'result-generated') {
+          const sentence = msg.payload?.output?.sentence;
+          if (!sentence) return;
+
+          if (sentence.sentence_end) {
+            // 句子结束 → 提交完整文本
+            const text = sentence.text.trim();
+            if (text) {
+              showToast(`"${text}"`);
+              handleUserInput(text);
+            }
+            this.currentText = '';
+          } else {
+            // 中间结果 → 更新状态显示（不打断对话）
+            this.currentText = sentence.text;
+            statusText.textContent = `听到: ${sentence.text}`;
+          }
+        } else if (evt === 'task-finished') {
+          console.log('Paraformer 任务结束');
+          this.running = false;
+        } else if (evt === 'task-failed') {
+          const errMsg = msg.header?.error_message || '未知错误';
+          console.error('Paraformer 识别失败:', errMsg);
+          showToast(`语音识别失败: ${errMsg}`);
+          speechErrorCount++;
+          state.isListening = false;
+          this.running = false;
+          resolve(false);
+          if (speechErrorCount >= 3) {
+            state.autoDialogue = false;
+            autoBtn.classList.add('off');
+            autoBtn.textContent = '🔄 手动模式';
+            showToast('语音识别多次失败，已切换手动模式');
+          }
+        }
+      };
+
+      this.ws.onerror = (e) => {
+        console.error('Paraformer WebSocket 错误:', e);
+        showToast('语音服务连接异常');
+        speechErrorCount++;
+        state.isListening = false;
+        resolve(false);
+      };
+
+      this.ws.onclose = () => {
+        this.running = false;
+        state.isListening = false;
+        // 自动模式：重新开始新一轮识别
+        if (state.autoDialogue && speechErrorCount === 0 && !state.isThinking && !state.isSpeaking) {
+          setTimeout(() => restartListeningIfNeeded(), 400);
+        } else if (!state.autoDialogue) {
+          setStatus('ready');
+        }
+      };
+    });
+  }
+
+  _startAudioCapture() {
+    // 创建 AudioContext，重采样到 16kHz
+    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    const source = this.audioCtx.createMediaStreamSource(this.mediaStream);
+
+    // ScriptProcessorNode：采集 Float32 → 转 Int16 PCM → 发送
+    this.processor = this.audioCtx.createScriptProcessor(4096, 1, 1);
+
+    this.processor.onaudioprocess = (e) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.running) return;
+
+      const float32 = e.inputBuffer.getChannelData(0);
+      // Float32 → Int16 PCM (s16le)
+      const pcm = new Int16Array(float32.length);
+      for (let i = 0; i < float32.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32[i]));
+        pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      }
+      // 分片发送（约 3200 bytes ≈ 100ms）
+      const CHUNK = 3200;
+      for (let off = 0; off < pcm.length; off += CHUNK / 2) {
+        const end = Math.min(off + CHUNK / 2, pcm.length);
+        const slice = pcm.slice(off, end);
+        this.ws.send(slice.buffer);
+      }
+    };
+
+    source.connect(this.processor);
+    this.processor.connect(this.audioCtx.destination);
+  }
+
+  stop() {
+    this.running = false;
+    state.isListening = false;
+
+    // 发送 finish-task
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify({
+          header: { action: 'finish-task', task_id: this.taskId, streaming: 'duplex' },
+          payload: { input: {} }
+        }));
+      } catch(_) {}
+    }
+
+    this._cleanupAudio();
+    // WebSocket 会在 task-finished 后自动关闭
+  }
+
+  _cleanupAudio() {
+    if (this.processor) { this.processor.disconnect(); this.processor = null; }
+    if (this.audioCtx) { try { this.audioCtx.close(); } catch(_) {} this.audioCtx = null; }
+  }
+
+  _cleanupStream() {
+    if (this.mediaStream) { this.mediaStream.getTracks().forEach(t => t.stop()); this.mediaStream = null; }
+  }
+
+  destroy() {
+    this.stop();
+    this._cleanupStream();
+    if (this.ws) { try { this.ws.close(); } catch(_) {} this.ws = null; }
+  }
+}
+
+// 全局 ASR 实例
+let asrClient = null;
+
 function initSpeechRecognition() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
+  // Paraformer 无需预初始化，按需创建即可
+  asrClient = null;
+  state.recognition = null; // 保留兼容标记，但不再使用 Web Speech API
+
+  // 检查 API Key
+  const apiKey = localStorage.getItem('bailian_api_key') || localStorage.getItem('deepseek_api_key') || '';
+  if (!apiKey) {
     autoBtn.style.opacity = '0.4';
-    autoBtn.title = '当前浏览器不支持语音识别，请用 Chrome 或 Edge';
-    autoBtn.textContent = '⚠️ 不支持语音';
+    autoBtn.title = '请先配置 API Key 以启用语音识别';
+    autoBtn.textContent = '⚠️ 需配置Key';
     autoBtn.classList.add('off');
-    statusText.textContent = '浏览器不支持语音';
+    statusText.textContent = '请配置百炼Key以启用语音';
     return;
   }
-  const rec = new SR();
-  rec.lang = 'zh-CN';
-  rec.continuous = false;
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
 
-  rec.onstart = () => {
-    state.isListening = true;
-    speechErrorCount = 0; // 重置错误计数
-    setStatus('listening');
-  };
+  // 有 Key 就显示可用
+  autoBtn.style.opacity = '1';
+  autoBtn.title = '点击开启/关闭自动语音对话';
+}
 
-  rec.onresult = (e) => {
-    const text = e.results[0][0].transcript.trim();
-    if (text) {
-      showToast(`"${text}"`);
-      handleUserInput(text);
+// 启动一轮语音识别
+async function startListening() {
+  if (state.isSpeaking || state.isThinking) return;
+
+  // 如果上一轮还在跑，先停掉
+  if (asrClient && asrClient.running) {
+    asrClient.destroy();
+  }
+
+  asrClient = new ParaformerASR();
+  const ok = await asrClient.start();
+  if (!ok) {
+    asrClient = null;
+    // 如果失败且自动模式，稍后重试
+    if (state.autoDialogue && speechErrorCount < 3) {
+      setTimeout(() => restartListeningIfNeeded(), 1000);
     }
-  };
+  }
+}
 
-  rec.onerror = (e) => {
-    state.isListening = false;
-    const err = e.error;
-
-    if (err === 'no-speech') {
-      setStatus('ready');
-      // 自动模式静默重试
-      if (state.autoDialogue && !state.isSpeaking && !state.isThinking) {
-        setTimeout(() => {
-          if (state.autoDialogue && !state.isListening) {
-            try { rec.start(); } catch(_) {}
-          }
-        }, 300);
-      }
-      return;
-    }
-
-    if (err === 'aborted') {
-      setStatus('ready');
-      return;
-    }
-
-    // 明确错误：给出提示并停止自动重试
-    speechErrorCount++;
-    const messages = {
-      'not-allowed': '请允许浏览器使用麦克风权限',
-      'audio-capture': '未检测到麦克风设备',
-      'network': '语音服务连接失败，请检查网络',
-      'service-not-allowed': '当前网络不支持语音服务',
-      'language-not-supported': '浏览器不支持中文语音',
-    };
-    const msg = messages[err] || `语音识别异常 (${err})`;
-    showToast(msg);
-    statusText.textContent = `语音异常: ${err}`;
-
-    // 错误次数过多则切换到手动模式
-    if (speechErrorCount >= 3) {
-      state.autoDialogue = false;
-      autoBtn.classList.add('off');
-      autoBtn.textContent = '🔄 手动模式';
-      showToast('语音服务异常，已自动切换为手动模式');
-    }
-  };
-
-  rec.onend = () => {
-    state.isListening = false;
-    // 仅在正常结束且自动模式下重试，不重试非零错误计数
-    if (state.autoDialogue && speechErrorCount === 0 && !state.isSpeaking && !state.isThinking) {
-      setTimeout(() => {
-        if (state.autoDialogue && !state.isListening && !state.isSpeaking && !state.isThinking) {
-          try { rec.start(); } catch(_) {}
-        }
-      }, 400);
-    } else if (!state.autoDialogue) {
-      setStatus('ready');
-    }
-  };
-
-  state.recognition = rec;
+// 停止语音识别
+function stopListening() {
+  if (asrClient) {
+    asrClient.stop();
+    // 不 destroy，让 WebSocket 自然关闭
+  }
+  state.isListening = false;
 }
 
 // ========== 自动对话模式切换 ==========
@@ -510,25 +827,20 @@ autoBtn.addEventListener('click', () => {
     autoBtn.classList.remove('off');
     autoBtn.textContent = '🔄 自动对话中';
     showToast('已开启自动语音对话，直接说话即可');
-    if (state.recognition && !state.isSpeaking && !state.isThinking) {
-      try { state.recognition.start(); } catch(_) {
-        showToast('语音启动失败，请确认麦克风权限');
-      }
+    if (!state.isSpeaking && !state.isThinking) {
+      startListening();
     }
   } else {
     autoBtn.classList.add('off');
     autoBtn.textContent = '🔄 手动模式';
     statusText.textContent = statusTextDefault;
     showToast('已切换为手动输入模式');
-    if (state.isListening && state.recognition) state.recognition.stop();
+    stopListening();
   }
 });
 
 // ========== 微软 Edge TTS（WebSocket，国内直连，无需 Key）==========
-const EDGE_TTS_URL = 'wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4';
-const TTS_VOICE = 'zh-CN-YunxiNeural'; // 云希 — 男声，温润磁性，适合古风先生
-
-// 生成 UUID v4
+// ========== UUID 生成 ==========
 function uuid4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0;
@@ -536,6 +848,7 @@ function uuid4() {
   });
 }
 
+// ========== CosyVoice TTS（阿里百炼语音合成） ==========
 async function speakText(text, msgEl) {
   if (msgEl) {
     msgEl.classList.add('speaking');
@@ -551,12 +864,22 @@ async function speakText(text, msgEl) {
   setStatus('speaking');
 
   try {
-    const audioBlob = await edgeTTS(text);
-    const audioUrl = URL.createObjectURL(audioBlob);
-    await playAudio(audioUrl);
-    URL.revokeObjectURL(audioUrl);
+    const audioBlob = await cosyVoiceTTS(text);
+    if (audioBlob) {
+      console.log('✅ CosyVoice 返回音频，大小:', audioBlob.size, 'bytes');
+      const audioUrl = URL.createObjectURL(audioBlob);
+      await playAudio(audioUrl);
+      URL.revokeObjectURL(audioUrl);
+    } else {
+      // CosyVoice 失败，降级为浏览器 speechSynthesis
+      console.warn('CosyVoice TTS 返回空，降级为浏览器朗读');
+      showToast('🔊 CosyVoice失败，使用浏览器朗读');
+      await browserSpeak(text);
+    }
   } catch (e) {
     console.error('TTS 失败:', e);
+    // 降级为浏览器朗读
+    try { await browserSpeak(text); } catch(_) {}
     if (msgEl) {
       const indicator = msgEl.querySelector('.speaking-indicator');
       if (indicator) {
@@ -577,51 +900,102 @@ async function speakText(text, msgEl) {
   restartListeningIfNeeded();
 }
 
-async function edgeTTS(text) {
-  // SSML 格式，停顿更自然
-  const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="zh-CN">
-    <voice name="${TTS_VOICE}">
-      <mstts:silence type="Sentenceboundary" value="200ms"/>
-      ${escapeXml(text)}
-    </voice>
-  </speak>`;
+async function cosyVoiceTTS(text) {
+  // 优先用百炼 Key，没有则尝试 DeepSeek Key
+  const apiKey = getBailianKey() || getDeepSeekKey();
+  if (!apiKey) {
+    console.log('无 API Key，无法使用 CosyVoice TTS');
+    showToast('⚠️ 未配置API Key，无法语音合成');
+    return null;
+  }
+
+  const voice = getTtsVoice();
+  console.log('🎵 CosyVoice TTS 启动: voice=' + voice + ', text长度=' + text.length);
+  const taskId = uuid4();
 
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(EDGE_TTS_URL);
+    // WebSocket URL — 和 Paraformer 一样的 endpoint，api_key 通过 URL 参数传递
+    const wsUrl = `wss://dashscope.aliyuncs.com/api-ws/v1/inference/?api_key=${encodeURIComponent(apiKey)}`;
+    const ws = new WebSocket(wsUrl);
     const audioChunks = [];
-    let configSent = false;
-    let timer = setTimeout(() => { ws.close(); reject(new Error('TTS 超时')); }, 15000);
+    let taskStarted = false;
+    let timer = setTimeout(() => { ws.close(); resolve(null); }, 20000);
 
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
-      // 1) 发送配置
-      const configMsg = `X-Timestamp:${new Date().toISOString()}\r\n` +
-        `Content-Type:application/json; charset=utf-8\r\n` +
-        `Path:speech.config\r\n\r\n` +
-        JSON.stringify({
-          context: {
-            synthesis: {
-              audio: {
-                metadataoptions: { sentenceBoundaryEnabled: "false", wordBoundaryEnabled: "false" },
-                outputFormat: "audio-24khz-48kbitrate-mono-mp3"
-              }
-            }
-          }
-        });
-      ws.send(configMsg);
-      configSent = true;
+      console.log('✅ CosyVoice WebSocket 已连接');
+      // 发送 run-task 启动 TTS
+      const runMsg = JSON.stringify({
+        header: {
+          action: 'run-task',
+          task_id: taskId,
+          streaming: 'duplex'
+        },
+        payload: {
+          task_group: 'audio',
+          task: 'tts',
+          function: 'SpeechSynthesizer',
+          model: 'cosyvoice-v2',
+          parameters: {
+            text_type: 'PlainText',
+            voice: voice,
+            format: 'mp3',
+            sample_rate: 22050,
+            volume: 50,
+            rate: 0.9, // 语速稍慢，更符合古风先生
+            pitch: 1.0
+          },
+          input: {}
+        }
+      });
+      ws.send(runMsg);
     };
 
-    ws.onmessage = (event) => {
-      const data = event.data;
-      if (typeof data === 'string') {
-        // 可能是服务端就绪消息或错误
-        if (data.includes('turn.end')) {
+    ws.onmessage = (ev) => {
+      if (typeof ev.data === 'string') {
+        // 文本消息：解析 JSON
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch(_) { return; }
+        const evt = msg.header?.event;
+
+        if (evt === 'task-started') {
+          console.log('✅ CosyVoice task-started，发送文本');
+          taskStarted = true;
+          // 发送待合成文本
+          const continueMsg = JSON.stringify({
+            header: {
+              action: 'continue-task',
+              task_id: taskId,
+              streaming: 'duplex'
+            },
+            payload: {
+              input: {
+                text: text
+              }
+            }
+          });
+          ws.send(continueMsg);
+
+          // 发送 finish-task 通知文本发送完毕
+          const finishMsg = JSON.stringify({
+            header: {
+              action: 'finish-task',
+              task_id: taskId,
+              streaming: 'duplex'
+            },
+            payload: {
+              input: {}
+            }
+          });
+          ws.send(finishMsg);
+        } else if (evt === 'task-finished') {
           clearTimeout(timer);
           ws.close();
-          const totalLength = audioChunks.reduce((s, c) => s + c.byteLength, 0);
-          if (totalLength > 0) {
+          console.log('✅ CosyVoice task-finished，收到', audioChunks.length, '个音频块');
+          // 合成完成，合并音频数据
+          if (audioChunks.length > 0) {
+            const totalLength = audioChunks.reduce((s, c) => s + c.byteLength, 0);
             const merged = new Uint8Array(totalLength);
             let offset = 0;
             for (const chunk of audioChunks) {
@@ -630,73 +1004,127 @@ async function edgeTTS(text) {
             }
             resolve(new Blob([merged], { type: 'audio/mp3' }));
           } else {
-            reject(new Error('无音频数据'));
+            resolve(null);
           }
-          return;
+        } else if (evt === 'task-failed') {
+          clearTimeout(timer);
+          const errCode = msg.header?.error_code || '';
+          const errMsg = msg.header?.error_message || '';
+          console.error('CosyVoice TTS 失败:', errCode, errMsg);
+          showToast('❌ TTS失败: ' + errMsg);
+          ws.close();
+          resolve(null);
         }
-        // 收到文本消息时，可能是 headers 或 path 信息，接着发送 SSML
-        if (data.includes('Path:turn.start') || data.includes('X-StreamId')) {
-          const requestId = uuid4().replace(/-/g, '');
-          const ssmlMsg = `X-RequestId:${requestId}\r\n` +
-            `Content-Type:application/ssml+xml\r\n` +
-            `X-Timestamp:${new Date().toISOString()}\r\n` +
-            `Path:ssml\r\n\r\n` +
-            ssml;
-          ws.send(ssmlMsg);
-        }
+        // result-generated 事件（sentence-begin/synthesis/sentence-end）忽略文本消息
       } else {
-        // 二进制音频数据 — 跳过前导边界标记
-        let bytes = new Uint8Array(data);
-
-        // 移除 "Path:audio\r\n" 头部（二进制消息开头可能含有）
-        const headerEnd = findHeaderEnd(bytes);
-        if (headerEnd > 0) {
-          bytes = bytes.slice(headerEnd);
+        // 二进制消息：MP3 音频数据
+        const bytes = new Uint8Array(ev.data);
+        if (bytes.length > 0) {
+          audioChunks.push(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
         }
-
-        if (bytes.length > 0) audioChunks.push(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (e) => {
+      console.error('❌ CosyVoice WebSocket 错误', e);
       clearTimeout(timer);
-      reject(new Error('TTS WebSocket 连接失败'));
+      showToast('❌ TTS WebSocket连接失败');
+      resolve(null);
     };
 
     ws.onclose = () => {
+      console.log('CosyVoice WebSocket 已关闭');
       clearTimeout(timer);
     };
   });
 }
 
-// 在二进制数据中查找 "\r\n\r\n" 分隔位置
-function findHeaderEnd(bytes) {
-  for (let i = 0; i < bytes.length - 3; i++) {
-    if (bytes[i] === 13 && bytes[i+1] === 10 && bytes[i+2] === 13 && bytes[i+3] === 10) {
-      return i + 4;
+// 降级：浏览器内置 speechSynthesis（音质差但保底有声）
+function browserSpeak(text) {
+  return new Promise(async (resolve) => {
+    if (!window.speechSynthesis) {
+      console.warn('浏览器不支持 speechSynthesis');
+      resolve();
+      return;
     }
-  }
-  return -1;
-}
+    // 先取消之前的朗读
+    speechSynthesis.cancel();
 
-function escapeXml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+    // 等待 voices 异步加载（最多等2秒）
+    let voices = speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      await new Promise(r => {
+        const timer = setTimeout(r, 2000);
+        speechSynthesis.onvoiceschanged = () => { clearTimeout(timer); r(); };
+      });
+      voices = speechSynthesis.getVoices();
+    }
 
-function playAudio(url) {
-  return new Promise((resolve) => {
-    const a = new Audio(url);
-    a.onended = () => resolve();
-    a.onerror = () => resolve(); // 播放失败不阻塞流程
-    a.play().catch(() => resolve());
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'zh-CN';
+    utter.rate = 0.9;
+    utter.volume = 1;
+    // 找中文声音
+    const zhVoice = voices.find(v => v.lang === 'zh-CN')
+                  || voices.find(v => v.lang.startsWith('zh'));
+    if (zhVoice) {
+      utter.voice = zhVoice;
+      console.log('speechSynthesis 使用音色:', zhVoice.name);
+    } else {
+      console.warn('未找到中文语音，使用默认音色');
+    }
+    utter.onend = () => resolve();
+    utter.onerror = (e) => { console.warn('speechSynthesis 错误:', e.error); resolve(); };
+    speechSynthesis.speak(utter);
+    // 保底：最长等15秒后强制 resolve（有些浏览器 onend 不触发）
+    setTimeout(resolve, Math.max(text.length * 200, 5000));
   });
 }
 
+async function playAudio(url) {
+  // 方案一：HTML Audio 元素（最简单最兼容，不受 AudioContext 限制）
+  try {
+    const a = new Audio(url);
+    a.volume = 1;
+    await a.play();
+    console.log('✅ HTML Audio 播放成功');
+    return new Promise((resolve) => {
+      a.onended = () => resolve();
+      // 保底：15秒后强制结束
+      setTimeout(resolve, 15000);
+    });
+  } catch (e1) {
+    console.warn('HTML Audio 播放失败:', e1.message);
+  }
+
+  // 方案二：AudioContext 解码播放（绕过 autoplay 限制）
+  try {
+    const ctx = ensureAudioCtx();
+    const response = await fetch(url);
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(ctx.destination);
+
+    console.log('✅ AudioContext 播放成功');
+    return new Promise((resolve) => {
+      source.onended = () => resolve();
+      source.start(0);
+    });
+  } catch (e2) {
+    console.error('所有播放方式均失败:', e2.message);
+    showToast('⚠️ 浏览器阻止了语音播放，请点击页面任意位置后重试');
+    return Promise.resolve();
+  }
+}
+
 function restartListeningIfNeeded() {
-  if (state.autoDialogue && speechErrorCount === 0 && state.recognition && !state.isThinking) {
+  if (state.autoDialogue && speechErrorCount === 0 && !state.isThinking) {
     setTimeout(() => {
       if (state.autoDialogue && speechErrorCount === 0 && !state.isSpeaking && !state.isThinking && !state.isListening) {
-        try { state.recognition.start(); } catch(_) {}
+        startListening();
       }
     }, 400);
   }
@@ -1089,6 +1517,109 @@ const knowledgeBase = [
   { keywords: ['扶贫','救济','民生','救灾','低保','惠农','补贴'],
     response: '民生资金、扶贫款、救灾款——此乃百姓救命之钱，动一分一毫都是丧尽天良！清朝大贪官和珅曾在赈灾粮中掺沙子，饿死无数百姓。孟子曰："庖有肥肉，厩有肥马，民有饥色，野有饿莩，此率兽而食人也。"从民生领域伸手者，罪加一等、万民唾弃！',
     category: 'violation' },
+
+  // ===== 儿童古诗100首 =====
+{ keywords: ['静夜思', '李白', '床前明月', '疑是地上', '举头望明', '低头思故'], response: "床前明月光，疑是地上霜。举头望明月，低头思故乡。\n\n——李白《静夜思》\n\n唐代李白最脍炙人口的名篇，以月光引发思乡之情，语言质朴而意境深远。", category: 'poem' },
+  { keywords: ['望庐山瀑布', '李白', '日照香炉', '遥看瀑布', '飞流直下', '疑是银河'], response: "日照香炉生紫烟，遥看瀑布挂前川。飞流直下三千尺，疑是银河落九天。\n\n——李白《望庐山瀑布》\n\n李白眺望庐山瀑布的壮丽景色，以夸张手法写出瀑布磅礴气势。", category: 'poem' },
+  { keywords: ['赠汪伦', '李白', '李白乘舟', '忽闻岸上', '桃花潭水', '不及汪伦'], response: "李白乘舟将欲行，忽闻岸上踏歌声。桃花潭水深千尺，不及汪伦送我情。\n\n——李白《赠汪伦》\n\n李白赠别好友汪伦，以桃花潭水深千尺反衬友情更加深厚。", category: 'poem' },
+  { keywords: ['早发白帝城', '李白', '朝辞白帝', '千里江陵', '两岸猿声', '轻舟已过'], response: "朝辞白帝彩云间，千里江陵一日还。两岸猿声啼不住，轻舟已过万重山。\n\n——李白《早发白帝城》\n\n李白流放途中遇赦东归时的欢快之作，舟行如飞，心情愉悦。", category: 'poem' },
+  { keywords: ['夜宿山寺', '李白', '危楼高百', '手可摘星', '不敢高声', '恐惊天上'], response: "危楼高百尺，手可摘星辰。不敢高声语，恐惊天上人。\n\n——李白《夜宿山寺》\n\n李白夜宿山寺，极写楼高，想象奇特，充满浪漫色彩。", category: 'poem' },
+  { keywords: ['独坐敬亭山', '李白', '众鸟高飞', '孤云独去', '相看两不', '只有敬亭'], response: "众鸟高飞尽，孤云独去闲。相看两不厌，只有敬亭山。\n\n——李白《独坐敬亭山》\n\n李白独坐山中的孤寂心境，人与山对望，物我交融。", category: 'poem' },
+  { keywords: ['古朗月行', '李白', '小时不识', '呼作白玉', '又疑瑶台', '飞在青云'], response: "小时不识月，呼作白玉盘。又疑瑶台镜，飞在青云端。\n\n——李白《古朗月行》\n\n李白回忆小时候对月亮的想象，白玉盘、瑶台镜，充满童趣。", category: 'poem' },
+  { keywords: ['黄鹤楼送孟浩然之广陵', '李白', '故人西辞', '烟花三月', '孤帆远影', '唯见长江'], response: "故人西辞黄鹤楼，烟花三月下扬州。孤帆远影碧空尽，唯见长江天际流。\n\n——李白《黄鹤楼送孟浩然之广陵》\n\n李白在黄鹤楼送别孟浩然，目送孤帆远去，情深意长。", category: 'poem' },
+  { keywords: ['望天门山', '李白', '天门中断', '碧水东流', '两岸青山', '孤帆一片'], response: "天门中断楚江开，碧水东流至此回。两岸青山相对出，孤帆一片日边来。\n\n——李白《望天门山》\n\n李白描写天门山的雄伟与江水的奇险，气象开阔。", category: 'poem' },
+  { keywords: ['峨眉山月歌', '李白', '峨眉山月', '影入平羌', '夜发清溪', '思君不见'], response: "峨眉山月半轮秋，影入平羌江水流。夜发清溪向三峡，思君不见下渝州。\n\n——李白《峨眉山月歌》\n\n李白秋夜离开蜀地时对故乡山水月色的留恋之情。", category: 'poem' },
+  { keywords: ['春晓', '孟浩然', '春眠不觉', '处处闻啼', '夜来风雨', '花落知多'], response: "春眠不觉晓，处处闻啼鸟。夜来风雨声，花落知多少。\n\n——孟浩然《春晓》\n\n孟浩然写春天早晨醒来的感受，惜春之情跃然纸上。", category: 'poem' },
+  { keywords: ['宿建德江', '孟浩然', '移舟泊烟', '日暮客愁', '野旷天低', '江清月近'], response: "移舟泊烟渚，日暮客愁新。野旷天低树，江清月近人。\n\n——孟浩然《宿建德江》\n\n孟浩然旅途中的羁旅愁思，空旷的田野和清澈江水令人孤寂。", category: 'poem' },
+  { keywords: ['登鹳雀楼', '王之涣', '白日依山', '黄河入海', '欲穷千里', '更上一层'], response: "白日依山尽，黄河入海流。欲穷千里目，更上一层楼。\n\n——王之涣《登鹳雀楼》\n\n登高望远的千古名句，激励人们不断向上进取。", category: 'poem' },
+  { keywords: ['凉州词', '王之涣', '黄河远上', '一片孤城', '羌笛何须', '春风不度'], response: "黄河远上白云间，一片孤城万仞山。羌笛何须怨杨柳，春风不度玉门关。\n\n——王之涣《凉州词》\n\n王之涣描写边塞苍凉景象，暗含对戍边将士的同情。", category: 'poem' },
+  { keywords: ['咏柳', '贺知章', '碧玉妆成', '万条垂下', '不知细叶', '二月春风'], response: "碧玉妆成一树高，万条垂下绿丝绦。不知细叶谁裁出，二月春风似剪刀。\n\n——贺知章《咏柳》\n\n贺知章咏柳，把春风比作剪刀裁出细叶，比喻新奇贴切。", category: 'poem' },
+  { keywords: ['回乡偶书', '贺知章', '少小离家', '乡音无改', '儿童相见', '笑问客从'], response: "少小离家老大回，乡音无改鬓毛衰。儿童相见不相识，笑问客从何处来。\n\n——贺知章《回乡偶书》\n\n贺知章年老回乡的感慨，儿童不识，一笑一泪尽在其中。", category: 'poem' },
+  { keywords: ['出塞', '王昌龄', '秦时明月', '万里长征', '但使龙城', '不教胡马'], response: "秦时明月汉时关，万里长征人未还。但使龙城飞将在，不教胡马度阴山。\n\n——王昌龄《出塞》\n\n王昌龄写边塞战争，感叹名将不再，期盼和平戍边。", category: 'poem' },
+  { keywords: ['芙蓉楼送辛渐', '王昌龄', '寒雨连江', '平明送客', '洛阳亲友', '一片冰心'], response: "寒雨连江夜入吴，平明送客楚山孤。洛阳亲友如相问，一片冰心在玉壶。\n\n——王昌龄《芙蓉楼送辛渐》\n\n王昌龄送别友人，以冰心玉壶自喻品格高洁。", category: 'poem' },
+  { keywords: ['从军行', '王昌龄', '青海长云', '孤城遥望', '黄沙百战', '不破楼兰'], response: "青海长云暗雪山，孤城遥望玉门关。黄沙百战穿金甲，不破楼兰终不还。\n\n——王昌龄《从军行》\n\n边塞将士百战黄沙的壮志豪情，不破楼兰终不还。", category: 'poem' },
+  { keywords: ['鹿柴', '王维', '空山不见', '但闻人语', '返景入深', '复照青苔'], response: "空山不见人，但闻人语响。返景入深林，复照青苔上。\n\n——王维《鹿柴》\n\n王维描写空山深林的幽静，以声衬静，以光写幽。", category: 'poem' },
+  { keywords: ['送元二使安西', '王维', '渭城朝雨', '客舍青青', '劝君更尽', '西出阳关'], response: "渭城朝雨浥轻尘，客舍青青柳色新。劝君更尽一杯酒，西出阳关无故人。\n\n——王维《送元二使安西》\n\n千古送别名篇，一杯酒中蕴含无限惜别之情。", category: 'poem' },
+  { keywords: ['九月九日忆山东兄弟', '王维', '独在异乡', '每逢佳节', '遥知兄弟', '遍插茱萸'], response: "独在异乡为异客，每逢佳节倍思亲。遥知兄弟登高处，遍插茱萸少一人。\n\n——王维《九月九日忆山东兄弟》\n\n重阳节思念家乡亲人，每逢佳节倍思亲成为千古名句。", category: 'poem' },
+  { keywords: ['画', '王维', '远看山有', '近听水无', '春去花还', '人来鸟不'], response: "远看山有色，近听水无声。春去花还在，人来鸟不惊。\n\n——王维《画》\n\n题画诗佳作，从远到近、从色到声，写出画中之景的奇妙。", category: 'poem' },
+  { keywords: ['鸟鸣涧', '王维', '人闲桂花', '夜静春山', '月出惊山', '时鸣春涧'], response: "人闲桂花落，夜静春山空。月出惊山鸟，时鸣春涧中。\n\n——王维《鸟鸣涧》\n\n以动衬静，月出惊鸟的瞬间写出春山的幽静之美。", category: 'poem' },
+  { keywords: ['相思', '王维', '红豆生南', '春来发几', '愿君多采', '此物最相'], response: "红豆生南国，春来发几枝。愿君多采撷，此物最相思。\n\n——王维《相思》\n\n红豆又名相思子，王维以此寄意，语浅情深。", category: 'poem' },
+  { keywords: ['竹里馆', '王维', '独坐幽篁', '弹琴复长', '深林人不', '明月来相'], response: "独坐幽篁里，弹琴复长啸。深林人不知，明月来相照。\n\n——王维《竹里馆》\n\n王维独坐竹林弹琴，人与自然融为一体。", category: 'poem' },
+  { keywords: ['山居秋暝', '王维', '空山新雨', '天气晚来', '明月松间', '清泉石上'], response: "空山新雨后，天气晚来秋。明月松间照，清泉石上流。竹喧归浣女，莲动下渔舟。随意春芳歇，王孙自可留。\n\n——王维《山居秋暝》\n\n王维描写秋夜山中景色，诗中有画，画中有诗。", category: 'poem' },
+  { keywords: ['绝句', '杜甫', '两个黄鹂', '一行白鹭', '窗含西岭', '门泊东吴'], response: "两个黄鹂鸣翠柳，一行白鹭上青天。窗含西岭千秋雪，门泊东吴万里船。\n\n——杜甫《绝句》\n\n杜甫安居草堂时的明丽画面，四句四景对仗工整。", category: 'poem' },
+  { keywords: ['春夜喜雨', '杜甫', '好雨知时', '当春乃发', '随风潜入', '润物细无'], response: "好雨知时节，当春乃发生。随风潜入夜，润物细无声。\n\n——杜甫《春夜喜雨》\n\n杜甫写春雨及时而轻柔，润物细无声既是写实又暗喻教化。", category: 'poem' },
+  { keywords: ['江畔独步寻花', '杜甫', '黄四娘家', '千朵万朵', '留连戏蝶', '自在娇莺'], response: "黄四娘家花满蹊，千朵万朵压枝低。留连戏蝶时时舞，自在娇莺恰恰啼。\n\n——杜甫《江畔独步寻花》\n\n杜甫江边赏花，蝶舞莺啼，生机盎然。", category: 'poem' },
+  { keywords: ['绝句·迟日江山丽', '杜甫', '迟日江山', '春风花草', '泥融飞燕', '沙暖睡鸳'], response: "迟日江山丽，春风花草香。泥融飞燕子，沙暖睡鸳鸯。\n\n——杜甫《绝句·迟日江山丽》\n\n杜甫写春日江山的明媚与生机，色彩鲜明。", category: 'poem' },
+  { keywords: ['望岳', '杜甫', '岱宗夫如', '造化钟神', '阴阳割昏', '荡胸生曾'], response: "岱宗夫如何？齐鲁青未了。造化钟神秀，阴阳割昏晓。荡胸生曾云，决眦入归鸟。会当凌绝顶，一览众山小。\n\n——杜甫《望岳》\n\n杜甫仰望泰山，会当凌绝顶一览众山小成为励志名句。", category: 'poem' },
+  { keywords: ['江南逢李龟年', '杜甫', '岐王宅里', '崔九堂前', '正是江南', '落花时节'], response: "岐王宅里寻常见，崔九堂前几度闻。正是江南好风景，落花时节又逢君。\n\n——杜甫《江南逢李龟年》\n\n杜甫晚年与故人重逢，落花时节暗含盛衰之叹。", category: 'poem' },
+  { keywords: ['登高', '杜甫', '风急天高', '渚清沙白', '无边落木', '不尽长江'], response: "风急天高猿啸哀，渚清沙白鸟飞回。无边落木萧萧下，不尽长江滚滚来。\n\n——杜甫《登高》\n\n杜甫七律之冠，深秋登高的苍凉与壮阔浑然一体。", category: 'poem' },
+  { keywords: ['枫桥夜泊', '张继', '月落乌啼', '江枫渔火', '姑苏城外', '夜半钟声'], response: "月落乌啼霜满天，江枫渔火对愁眠。姑苏城外寒山寺，夜半钟声到客船。\n\n——张继《枫桥夜泊》\n\n张继夜泊苏州的千古名篇，钟声与愁绪交织，余韵悠长。", category: 'poem' },
+  { keywords: ['渔歌子', '张志和', '西塞山前', '桃花流水', '青箬', '绿蓑'], response: "西塞山前白鹭飞，桃花流水鳜鱼肥。青箬笠，绿蓑衣，斜风细雨不须归。\n\n——张志和《渔歌子》\n\n描写渔夫垂钓之乐，斜风细雨中悠然自得。", category: 'poem' },
+  { keywords: ['游子吟', '孟郊', '慈母手中', '游子身上', '临行密密', '意恐迟迟'], response: "慈母手中线，游子身上衣。临行密密缝，意恐迟迟归。谁言寸草心，报得三春晖。\n\n——孟郊《游子吟》\n\n歌颂母爱的千古绝唱，寸草春晖比喻子女难报母恩。", category: 'poem' },
+  { keywords: ['早春呈水部张十八员外', '韩愈', '天街小雨', '草色遥看', '最是一年', '绝胜烟柳'], response: "天街小雨润如酥，草色遥看近却无。最是一年春好处，绝胜烟柳满皇都。\n\n——韩愈《早春呈水部张十八员外》\n\n韩愈写早春草色若有若无的微妙美感。", category: 'poem' },
+  { keywords: ['望洞庭', '刘禹锡', '湖光秋月', '潭面无风', '遥望洞庭', '白银盘里'], response: "湖光秋月两相和，潭面无风镜未磨。遥望洞庭山水翠，白银盘里一青螺。\n\n——刘禹锡《望洞庭》\n\n刘禹锡月下望洞庭，白银盘青螺比喻绝妙。", category: 'poem' },
+  { keywords: ['浪淘沙', '刘禹锡', '九曲黄河', '浪淘风簸', '如今直上', '同到牵牛'], response: "九曲黄河万里沙，浪淘风簸自天涯。如今直上银河去，同到牵牛织女家。\n\n——刘禹锡《浪淘沙》\n\n黄河的磅礴与浪漫想象融合。", category: 'poem' },
+  { keywords: ['乌衣巷', '刘禹锡', '朱雀桥边', '乌衣巷口', '旧时王谢', '飞入寻常'], response: "朱雀桥边野草花，乌衣巷口夕阳斜。旧时王谢堂前燕，飞入寻常百姓家。\n\n——刘禹锡《乌衣巷》\n\n刘禹锡感叹世事沧桑，昔日豪门已成寻常百姓家。", category: 'poem' },
+  { keywords: ['竹枝词', '刘禹锡', '杨柳青青', '闻郎江上', '东边日出', '道是无晴'], response: "杨柳青青江水平，闻郎江上踏歌声。东边日出西边雨，道是无晴却有晴。\n\n——刘禹锡《竹枝词》\n\n以天气暗喻恋情，双关语用得巧妙。", category: 'poem' },
+  { keywords: ['赋得古原草送别', '白居易', '离离原上', '一岁一枯', '野火烧不', '春风吹又'], response: "离离原上草，一岁一枯荣。野火烧不尽，春风吹又生。\n\n——白居易《赋得古原草送别》\n\n白居易以原上草的生命力喻坚韧不拔的精神。", category: 'poem' },
+  { keywords: ['池上', '白居易', '小娃撑小', '偷采白莲', '不解藏踪', '浮萍一道'], response: "小娃撑小艇，偷采白莲回。不解藏踪迹，浮萍一道开。\n\n——白居易《池上》\n\n写儿童偷采莲蓬的天真可爱，充满生活情趣。", category: 'poem' },
+  { keywords: ['忆江南', '白居易', '江南', '风景旧曾', '日出江花', '春来江水'], response: "江南好，风景旧曾谙。日出江花红胜火，春来江水绿如蓝。能不忆江南？\n\n——白居易《忆江南》\n\n白居易回忆江南美景，江花红胜火江水绿如蓝，色彩绚烂。", category: 'poem' },
+  { keywords: ['大林寺桃花', '白居易', '人间四月', '山寺桃花', '长恨春归', '不知转入'], response: "人间四月芳菲尽，山寺桃花始盛开。长恨春归无觅处，不知转入此中来。\n\n——白居易《大林寺桃花》\n\n山寺桃花晚开，原来春天转到了山中来！别有禅趣。", category: 'poem' },
+  { keywords: ['暮江吟', '白居易', '一道残阳', '半江瑟瑟', '可怜九月', '露似真珠'], response: "一道残阳铺水中，半江瑟瑟半江红。可怜九月初三夜，露似真珠月似弓。\n\n——白居易《暮江吟》\n\n白居易笔下九月初三的傍晚，半江红半江绿美不胜收。", category: 'poem' },
+  { keywords: ['钱塘湖春行', '白居易', '孤山寺北', '水面初平', '几处早莺', '谁家新燕'], response: "孤山寺北贾亭西，水面初平云脚低。几处早莺争暖树，谁家新燕啄春泥。乱花渐欲迷人眼，浅草才能没马蹄。最爱湖东行不足，绿杨阴里白沙堤。\n\n——白居易《钱塘湖春行》\n\n白居易春日游西湖，早莺、新燕、乱花、浅草写尽春光。", category: 'poem' },
+  { keywords: ['悯农·其一', '李绅', '春种一粒', '秋收万颗', '四海无闲', '农夫犹饿'], response: "春种一粒粟，秋收万颗子。四海无闲田，农夫犹饿死。\n\n——李绅《悯农·其一》\n\n揭露社会不公，即使四海无闲田，农夫依然饿死。", category: 'poem' },
+  { keywords: ['悯农·其二', '李绅', '锄禾日当', '汗滴禾下', '谁知盘中', '粒粒皆辛'], response: "锄禾日当午，汗滴禾下土。谁知盘中餐，粒粒皆辛苦。\n\n——李绅《悯农·其二》\n\n教导珍惜粮食的名篇，粒粒皆辛苦人尽皆知。", category: 'poem' },
+  { keywords: ['寻隐者不遇', '贾岛', '松下问童', '言师采药', '只在此山', '云深不知'], response: "松下问童子，言师采药去。只在此山中，云深不知处。\n\n——贾岛《寻隐者不遇》\n\n寻访隐士不遇，一问一答间尽显山林幽远。", category: 'poem' },
+  { keywords: ['山行', '杜牧', '远上寒山', '白云生处', '停车坐爱', '霜叶红于'], response: "远上寒山石径斜，白云生处有人家。停车坐爱枫林晚，霜叶红于二月花。\n\n——杜牧《山行》\n\n杜牧深秋山行，枫叶经霜比二月花还红。", category: 'poem' },
+  { keywords: ['清明', '杜牧', '清明时节', '路上行人', '借问酒家'], response: "清明时节雨纷纷，路上行人欲断魂。借问酒家何处有？牧童遥指杏花村。\n\n——杜牧《清明》\n\n写清明雨中行人的愁绪和寻酒问路的情趣。", category: 'poem' },
+  { keywords: ['江南春', '杜牧', '千里莺啼', '水村山郭', '南朝四百', '多少楼台'], response: "千里莺啼绿映红，水村山郭酒旗风。南朝四百八十寺，多少楼台烟雨中。\n\n——杜牧《江南春》\n\n江南春景的广阔画卷，烟雨楼台中蕴含历史沧桑。", category: 'poem' },
+  { keywords: ['泊秦淮', '杜牧', '烟笼寒水', '夜泊秦淮', '商女不知', '隔江犹唱'], response: "烟笼寒水月笼沙，夜泊秦淮近酒家。商女不知亡国恨，隔江犹唱后庭花。\n\n——杜牧《泊秦淮》\n\n杜牧夜泊秦淮听商女唱歌，忧国忧民之情深沉。", category: 'poem' },
+  { keywords: ['秋夕', '杜牧', '银烛秋光', '轻罗小扇', '天阶夜色', '卧看牵牛'], response: "银烛秋光冷画屏，轻罗小扇扑流萤。天阶夜色凉如水，卧看牵牛织女星。\n\n——杜牧《秋夕》\n\n写宫女秋夜寂寞，卧看牵牛织女星引人遐思。", category: 'poem' },
+  { keywords: ['过华清宫', '杜牧', '长安回望', '山顶千门', '一骑红尘', '无人知是'], response: "长安回望绣成堆，山顶千门次第开。一骑红尘妃子笑，无人知是荔枝来。\n\n——杜牧《过华清宫》\n\n讽刺唐玄宗为杨贵妃千里送荔枝劳民伤财。", category: 'poem' },
+  { keywords: ['乐游原', '李商隐', '向晚意不', '驱车登古', '夕阳无限', '只是近黄'], response: "向晚意不适，驱车登古原。夕阳无限好，只是近黄昏。\n\n——李商隐《乐游原》\n\n夕阳无限好只是近黄昏成为千古名句。", category: 'poem' },
+  { keywords: ['夜雨寄北', '李商隐', '君问归期', '巴山夜雨', '何当共剪', '却话巴山'], response: "君问归期未有期，巴山夜雨涨秋池。何当共剪西窗烛，却话巴山夜雨时。\n\n——李商隐《夜雨寄北》\n\n李商隐写给妻子的家书，归期未定却满怀重逢期待。", category: 'poem' },
+  { keywords: ['蜂', '罗隐', '不论平地', '无限风光', '采得百花', '为谁辛苦'], response: "不论平地与山尖，无限风光尽被占。采得百花成蜜后，为谁辛苦为谁甜？\n\n——罗隐《蜂》\n\n咏蜂的名篇，为谁辛苦为谁甜引人深思。", category: 'poem' },
+  { keywords: ['江雪', '柳宗元', '千山鸟飞', '万径人踪', '孤舟蓑笠', '独钓寒江'], response: "千山鸟飞绝，万径人踪灭。孤舟蓑笠翁，独钓寒江雪。\n\n——柳宗元《江雪》\n\n柳宗元被贬后的孤傲精神写照，以雪中独钓寄意。", category: 'poem' },
+  { keywords: ['小儿垂钓', '胡令能', '蓬头稚子', '侧坐莓苔', '路人借问', '怕得鱼惊'], response: "蓬头稚子学垂纶，侧坐莓苔草映身。路人借问遥招手，怕得鱼惊不应人。\n\n——胡令能《小儿垂钓》\n\n写儿童学钓鱼的专注可爱，充满童趣。", category: 'poem' },
+  { keywords: ['风', '李峤', '解落三秋', '能开二月', '过江千尺', '入竹万竿'], response: "解落三秋叶，能开二月花。过江千尺浪，入竹万竿斜。\n\n——李峤《风》\n\n四句写风，虽然没有风字却处处有风。", category: 'poem' },
+  { keywords: ['登幽州台歌', '陈子昂', '前不见古', '后不见来', '念天地之', '独怆然而'], response: "前不见古人，后不见来者。念天地之悠悠，独怆然而涕下。\n\n——陈子昂《登幽州台歌》\n\n陈子昂登台的苍茫之叹，天地悠悠触发了深沉的孤独感。", category: 'poem' },
+  { keywords: ['滁州西涧', '韦应物', '独怜幽草', '上有黄鹂', '春潮带雨', '野渡无人'], response: "独怜幽草涧边生，上有黄鹂深树鸣。春潮带雨晚来急，野渡无人舟自横。\n\n——韦应物《滁州西涧》\n\n滁州西涧的幽静春光，野渡无人舟自横成为名句。", category: 'poem' },
+  { keywords: ['塞下曲', '卢纶', '月黑雁飞', '单于夜遁', '欲将轻骑', '大雪满弓'], response: "月黑雁飞高，单于夜遁逃。欲将轻骑逐，大雪满弓刀。\n\n——卢纶《塞下曲》\n\n描写雪夜追击敌军的边塞场景，雄浑豪迈。", category: 'poem' },
+  { keywords: ['别董大', '高适', '千里黄云', '北风吹雁', '莫愁前路', '天下谁人'], response: "千里黄云白日曛，北风吹雁雪纷纷。莫愁前路无知己，天下谁人不识君？\n\n——高适《别董大》\n\n高适赠别琴师董大，莫愁前路无知己豪迈感人。", category: 'poem' },
+  { keywords: ['送杜少府之任蜀州', '王勃', '城阙辅三', '风烟望五', '与君离别', '同是宦游'], response: "城阙辅三秦，风烟望五津。与君离别意，同是宦游人。海内存知己，天涯若比邻。无为在歧路，儿女共沾巾。\n\n——王勃《送杜少府之任蜀州》\n\n王勃送别诗，海内存知己天涯若比邻流传千古。", category: 'poem' },
+  { keywords: ['咏鹅', '骆宾王', '鹅鹅', '曲项向天', '白毛浮绿', '红掌拨清'], response: "鹅鹅鹅，曲项向天歌。白毛浮绿水，红掌拨清波。\n\n——骆宾王《咏鹅》\n\n七岁骆宾王所作，白毛绿水红掌色彩鲜明，传颂千年。", category: 'poem' },
+  { keywords: ['元日', '王安石', '爆竹声中', '春风送暖', '千门万户', '总把新桃'], response: "爆竹声中一岁除，春风送暖入屠苏。千门万户曈曈日，总把新桃换旧符。\n\n——王安石《元日》\n\n写春节万象更新，新桃换旧符寓意除旧迎新。", category: 'poem' },
+  { keywords: ['泊船瓜洲', '王安石', '京口瓜洲', '钟山只隔', '春风又绿', '明月何时'], response: "京口瓜洲一水间，钟山只隔数重山。春风又绿江南岸，明月何时照我还？\n\n——王安石《泊船瓜洲》\n\n春风又绿江南岸的绿字炼字精妙。", category: 'poem' },
+  { keywords: ['梅花', '王安石', '墙角数枝', '凌寒独自', '遥知不是', '为有暗香'], response: "墙角数枝梅，凌寒独自开。遥知不是雪，为有暗香来。\n\n——王安石《梅花》\n\n王安石咏梅，梅花傲雪盛开暗香浮动。", category: 'poem' },
+  { keywords: ['饮湖上初晴后雨', '苏轼', '水光潋滟', '山色空蒙', '欲把西湖', '淡妆浓抹'], response: "水光潋滟晴方好，山色空蒙雨亦奇。欲把西湖比西子，淡妆浓抹总相宜。\n\n——苏轼《饮湖上初晴后雨》\n\n苏轼把西湖比作西施，淡妆浓抹都美不胜收。", category: 'poem' },
+  { keywords: ['题西林壁', '苏轼', '横看成岭', '远近高低', '不识庐山', '只缘身在'], response: "横看成岭侧成峰，远近高低各不同。不识庐山真面目，只缘身在此山中。\n\n——苏轼《题西林壁》\n\n蕴含深刻哲理，当局者迷旁观者清。", category: 'poem' },
+  { keywords: ['惠崇春江晚景', '苏轼', '竹外桃花', '春江水暖', '蒌蒿满地', '正是河豚'], response: "竹外桃花三两枝，春江水暖鸭先知。蒌蒿满地芦芽短，正是河豚欲上时。\n\n——苏轼《惠崇春江晚景》\n\n苏轼题画诗，春江水暖鸭先知成为名句。", category: 'poem' },
+  { keywords: ['六月二十七日望湖楼醉书', '苏轼', '黑云翻墨', '白雨跳珠', '卷地风来', '望湖楼下'], response: "黑云翻墨未遮山，白雨跳珠乱入船。卷地风来忽吹散，望湖楼下水如天。\n\n——苏轼《六月二十七日望湖楼醉书》\n\n苏轼写西湖骤雨后的明净，以黑白水三个色调写景。", category: 'poem' },
+  { keywords: ['赠刘景文', '苏轼', '荷尽已无', '菊残犹有', '一年好景', '最是橙黄'], response: "荷尽已无擎雨盖，菊残犹有傲霜枝。一年好景君须记，最是橙黄橘绿时。\n\n——苏轼《赠刘景文》\n\n勉励友人，秋末冬初橙黄橘绿也是一年好景。", category: 'poem' },
+  { keywords: ['夏日绝句', '李清照', '生当作人', '死亦为鬼', '至今思项', '不肯过江'], response: "生当作人杰，死亦为鬼雄。至今思项羽，不肯过江东。\n\n——李清照《夏日绝句》\n\n李清照借项羽不渡乌江，表达宁死不屈的气节。", category: 'poem' },
+  { keywords: ['示儿', '陆游', '死去元知', '但悲不见', '王师北定', '家祭无忘'], response: "死去元知万事空，但悲不见九州同。王师北定中原日，家祭无忘告乃翁。\n\n——陆游《示儿》\n\n陆游临终绝笔，至死不忘国家统一。", category: 'poem' },
+  { keywords: ['秋夜将晓出篱门迎凉有感', '陆游', '三万里河', '五千仞岳', '遗民泪尽', '南望王师'], response: "三万里河东入海，五千仞岳上摩天。遗民泪尽胡尘里，南望王师又一年。\n\n——陆游《秋夜将晓出篱门迎凉有感》\n\n陆游写沦陷区人民盼望收复中原的悲痛。", category: 'poem' },
+  { keywords: ['游山西村', '陆游', '莫笑农家', '丰年留客', '山重水复', '柳暗花明'], response: "莫笑农家腊酒浑，丰年留客足鸡豚。山重水复疑无路，柳暗花明又一村。\n\n——陆游《游山西村》\n\n山重水复疑无路柳暗花明又一村成为励志名句。", category: 'poem' },
+  { keywords: ['冬夜读书示子聿', '陆游', '古人学问', '少壮工夫', '纸上得来', '绝知此事'], response: "古人学问无遗力，少壮工夫老始成。纸上得来终觉浅，绝知此事要躬行。\n\n——陆游《冬夜读书示子聿》\n\n陆游教导儿子：纸上得来终觉浅，实践最重要。", category: 'poem' },
+  { keywords: ['四时田园杂兴', '范成大', '昼出耘田', '村庄儿女', '童孙未解', '也傍桑阴'], response: "昼出耘田夜绩麻，村庄儿女各当家。童孙未解供耕织，也傍桑阴学种瓜。\n\n——范成大《四时田园杂兴》\n\n描写农家生活的忙碌与儿童模仿种瓜的童趣。", category: 'poem' },
+  { keywords: ['小池', '杨万里', '泉眼无声', '树阴照水', '小荷才露', '早有蜻蜓'], response: "泉眼无声惜细流，树阴照水爱晴柔。小荷才露尖尖角，早有蜻蜓立上头。\n\n——杨万里《小池》\n\n小荷才露尖尖角写出初夏新生事物的蓬勃生机。", category: 'poem' },
+  { keywords: ['晓出净慈寺送林子方', '杨万里', '毕竟西湖', '风光不与', '接天莲叶', '映日荷花'], response: "毕竟西湖六月中，风光不与四时同。接天莲叶无穷碧，映日荷花别样红。\n\n——杨万里《晓出净慈寺送林子方》\n\n写出六月西湖荷花接天映日的壮丽。", category: 'poem' },
+  { keywords: ['宿新市徐公店', '杨万里', '篱落疏疏', '树头花落', '儿童急走', '飞入菜花'], response: "篱落疏疏一径深，树头花落未成阴。儿童急走追黄蝶，飞入菜花无处寻。\n\n——杨万里《宿新市徐公店》\n\n儿童追黄蝶的童趣画面，飞入菜花无处寻妙趣横生。", category: 'poem' },
+  { keywords: ['舟过安仁', '杨万里', '一叶渔船', '收篙停棹', '怪生无雨', '不是遮头'], response: "一叶渔船两小童，收篙停棹坐船中。怪生无雨都张伞，不是遮头是使风。\n\n——杨万里《舟过安仁》\n\n两个小孩用伞当帆借风行舟，聪明可爱。", category: 'poem' },
+  { keywords: ['春日', '朱熹', '胜日寻芳', '无边光景', '等闲识得', '万紫千红'], response: "胜日寻芳泗水滨，无边光景一时新。等闲识得东风面，万紫千红总是春。\n\n——朱熹《春日》\n\n万紫千红总是春，写出春天的绚烂多彩。", category: 'poem' },
+  { keywords: ['观书有感', '朱熹', '半亩方塘', '天光云影', '问渠那得'], response: "半亩方塘一鉴开，天光云影共徘徊。问渠那得清如许？为有源头活水来。\n\n——朱熹《观书有感》\n\n以方塘明净喻读书求知，源头活水来成为经典。", category: 'poem' },
+  { keywords: ['题临安邸', '林升', '山外青山', '西湖歌舞', '直把杭州'], response: "山外青山楼外楼，西湖歌舞几时休？暖风熏得游人醉，直把杭州作汴州。\n\n——林升《题临安邸》\n\n讽刺南宋偏安一隅醉生梦死不知亡国之痛。", category: 'poem' },
+  { keywords: ['游园不值', '叶绍翁', '应怜屐齿', '小扣柴扉', '春色满园', '一枝红杏'], response: "应怜屐齿印苍苔，小扣柴扉久不开。春色满园关不住，一枝红杏出墙来。\n\n——叶绍翁《游园不值》\n\n春色满园关不住成为名句。", category: 'poem' },
+  { keywords: ['乡村四月', '翁卷', '绿遍山原', '子规声里', '乡村四月', '才了蚕桑'], response: "绿遍山原白满川，子规声里雨如烟。乡村四月闲人少，才了蚕桑又插田。\n\n——翁卷《乡村四月》\n\n描写乡村四月农忙景象。", category: 'poem' },
+  { keywords: ['村居', '高鼎', '草长莺飞', '拂堤杨柳', '儿童散学', '忙趁东风'], response: "草长莺飞二月天，拂堤杨柳醉春烟。儿童散学归来早，忙趁东风放纸鸢。\n\n——高鼎《村居》\n\n儿童散学归来放风筝的欢乐画面。", category: 'poem' },
+  { keywords: ['所见', '袁枚', '牧童骑黄', '歌声振林', '意欲捕鸣', '忽然闭口'], response: "牧童骑黄牛，歌声振林樾。意欲捕鸣蝉，忽然闭口立。\n\n——袁枚《所见》\n\n牧童骑牛唱歌忽然闭口捕蝉的生动画面。", category: 'poem' },
+  { keywords: ['三衢道中', '曾几', '梅子黄时', '小溪泛尽', '绿阴不减', '添得黄鹂'], response: "梅子黄时日日晴，小溪泛尽却山行。绿阴不减来时路，添得黄鹂四五声。\n\n——曾几《三衢道中》\n\n初夏山行，绿阴黄鹂明快清新。", category: 'poem' },
+  { keywords: ['雪梅', '卢钺', '梅雪争春', '骚人搁笔', '梅须逊雪', '雪却输梅'], response: "梅雪争春未肯降，骚人搁笔费评章。梅须逊雪三分白，雪却输梅一段香。\n\n——卢钺《雪梅》\n\n梅雪各有所长，哲理与美感兼具。", category: 'poem' },
+  { keywords: ['采莲曲', '王昌龄', '荷叶罗裙', '芙蓉向脸', '乱入池中', '闻歌始觉'], response: "荷叶罗裙一色裁，芙蓉向脸两边开。乱入池中看不见，闻歌始觉有人来。\n\n——王昌龄《采莲曲》\n\n写采莲少女与荷花融为一体的美妙画面。", category: 'poem' },
+  { keywords: ['墨梅', '王冕', '吾家洗砚', '朵朵花开', '不要人夸', '只留清气'], response: "吾家洗砚池头树，朵朵花开淡墨痕。不要人夸好颜色，只留清气满乾坤。\n\n——王冕《墨梅》\n\n王冕借墨梅言志，不图虚名但求清气。", category: 'poem' },
+  { keywords: ['竹石', '郑燮', '咬定青山', '立根原在', '千磨万击', '任尔东西'], response: "咬定青山不放松，立根原在破岩中。千磨万击还坚劲，任尔东西南北风。\n\n——郑燮《竹石》\n\n郑板桥咏竹，歌颂坚韧不拔的精神。", category: 'poem' },
+  { keywords: ['己亥杂诗', '龚自珍', '九州生气', '万马齐喑', '我劝天公', '不拘一格'], response: "九州生气恃风雷，万马齐喑究可哀。我劝天公重抖擞，不拘一格降人才。\n\n——龚自珍《己亥杂诗》\n\n龚自珍呼唤变革，不拘一格降人才流传至今。", category: 'poem' },
+
 ];
 
 const fallbackResponses = [
@@ -1099,19 +1630,19 @@ const fallbackResponses = [
   '你问得好。多少入狱之人，起初也不过是"举手之劳""盛情难却"。防微杜渐，方为正道。',
 ];
 
-// ========== DeepSeek API 对话 ==========
-function getDeepSeekKey() {
-  return localStorage.getItem('deepseek_api_key') || '';
-}
+// ========== AI 对话（支持 DeepSeek + 阿里百炼） ==========
 
 function getSystemPrompt() {
-  return localStorage.getItem('deepseek_system_prompt')
+  return localStorage.getItem('ai_system_prompt')
+    || localStorage.getItem('deepseek_system_prompt')
     || '你是古代清正廉明的官员，50岁左右，说话温文尔雅、引经据典，用半文言白话。对方是来请教廉洁文化、道德修养之人。回答时：1)引用古代廉政典故（包拯、海瑞、于成龙等）；2)结合现代法规精神；3)语风温和敦厚如长者；4)回答简洁，控制在150字以内。若对方自述困惑或悔过，耐心劝导、指正道义。';
 }
 
-async function callDeepSeek(userMessage) {
-  const apiKey = getDeepSeekKey();
+async function callAI(userMessage) {
+  const apiKey = getActiveApiKey();
   if (!apiKey) return null;
+  const endpoint = getActiveApiEndpoint();
+  const model = getActiveModel();
 
   // 构建消息列表
   const messages = [
@@ -1121,14 +1652,14 @@ async function callDeepSeek(userMessage) {
   ];
 
   try {
-    const res = await fetch(DEEPSEEK_API, {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: model,
         messages: messages,
         max_tokens: 600,
         temperature: 0.85,
@@ -1137,7 +1668,7 @@ async function callDeepSeek(userMessage) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      console.error('DeepSeek API error:', res.status, err);
+      console.error('AI API error:', res.status, err);
       if (res.status === 401) return '__INVALID_KEY__';
       if (res.status === 402) return '__NO_BALANCE__';
       return null;
@@ -1158,7 +1689,7 @@ async function callDeepSeek(userMessage) {
 
     return reply;
   } catch (e) {
-    console.error('DeepSeek API 网络错误:', e);
+    console.error('AI API 网络错误:', e);
     return null;
   }
 }
@@ -1167,6 +1698,20 @@ async function callDeepSeek(userMessage) {
 // 返回 { response, source: 'kb' | 'fallback' | 'none' }
 function findResponse(input) {
   const n = input.toLowerCase().trim();
+
+  // 先检查是否在请求诗词（泛化触发）
+  const poemTriggers = ['诗', '诗词', '唐诗', '宋词', '古诗', '来首诗', '念首诗', '诵首诗', '背首诗', '吟首诗', '来一首', '吟诗', '作诗', '咏诗', '来点诗', '来点唐诗', '来点宋词', '来点古诗', '唐诗宋词', '吟一首', '诵一首', '背一首', '来句诗', '念一句'];
+  const isPoemRequest = poemTriggers.some(t => n.includes(t));
+  if (isPoemRequest) {
+    // 从诗库中随机选一首
+    const poems = knowledgeBase.filter(e => e.category === 'poem');
+    if (poems.length > 0) {
+      const picked = poems[Math.floor(Math.random() * poems.length)];
+      const prefix = '阁下好雅兴！老夫为你吟一首——\n\n';
+      return { response: prefix + picked.response, source: 'kb', score: 10 };
+    }
+  }
+
   let best = null, bestScore = 0;
   for (const e of knowledgeBase) {
     let score = 0;
@@ -1191,9 +1736,7 @@ async function handleUserInput(text) {
   state.isThinking = true;
 
   // 处理期间停止监听
-  if (state.isListening && state.recognition) {
-    try { state.recognition.stop(); } catch(_) {}
-  }
+  stopListening();
 
   addMessage('user', text);
   textInput.value = '';
@@ -1202,35 +1745,29 @@ async function handleUserInput(text) {
   let response;
   let sourceUsed = '';
 
-  // 第一步：始终先搜本地知识库
-  const kbResult = findResponse(text);
-
-  // 第二步：若知识库精确命中（score高），直接返回，不调 API
-  if (kbResult.source === 'kb') {
-    response = kbResult.response;
-    sourceUsed = '本地知识库';
-  }
-  // 第三步：未精确命中但有 DeepSeek Key → 调 AI
-  else if (getDeepSeekKey()) {
-    const aiResponse = await callDeepSeek(text);
+  // 第一步：有 AI Key → 优先调 AI（DeepSeek 或百炼）
+  if (getActiveApiKey()) {
+    const aiResponse = await callAI(text);
     if (aiResponse === '__INVALID_KEY__') {
       response = '⚠️ API Key 无效或已过期，请重新设置。【已自动切换为本地知识库】';
-      localStorage.removeItem('deepseek_api_key');
+      localStorage.removeItem(getAiProvider() === 'bailian' ? 'bailian_api_key' : 'deepseek_api_key');
       updateAiStatus();
     } else if (aiResponse === '__NO_BALANCE__') {
       response = '⚠️ API 余额不足，请充值后重试。【已自动切换为本地知识库】';
       updateAiStatus();
     } else if (aiResponse) {
       response = aiResponse;
-      sourceUsed = 'DeepSeek AI';
+      sourceUsed = getAiProvider() === 'bailian' ? '百炼 AI' : 'DeepSeek AI';
     } else {
-      // AI 网络错误，用知识库兜底结果
+      // AI 网络错误，降级为本地知识库
+      const kbResult = findResponse(text);
       response = kbResult.response;
       sourceUsed = '本地知识库（AI 不可用）';
     }
   }
-  // 第四步：无 Key，用知识库结果
+  // 第二步：无 Key，用本地知识库
   else {
+    const kbResult = findResponse(text);
     response = kbResult.response;
     sourceUsed = '本地知识库';
   }
@@ -1260,19 +1797,34 @@ textInput.addEventListener('keydown', e => {
 
 // ========== 设置面板 ==========
 function updateAiStatus() {
-  const key = getDeepSeekKey();
+  const key = getActiveApiKey();
+  const provider = getAiProvider();
   state.aiEnabled = !!key;
   if (key) {
     btnSettings.classList.add('ai-active');
-    btnSettings.textContent = 'AI 已连接';
+    btnSettings.textContent = provider === 'bailian' ? '百炼已连接' : 'AI 已连接';
   } else {
     btnSettings.classList.remove('ai-active');
     btnSettings.textContent = 'AI模型';
   }
 }
 
+// 提供商切换
+aiProviderSelect.addEventListener('change', () => {
+  const v = aiProviderSelect.value;
+  deepseekFields.style.display = v === 'deepseek' ? 'block' : 'none';
+  bailianFields.style.display = v === 'bailian' ? 'block' : 'none';
+});
+
 btnSettings.addEventListener('click', () => {
+  const provider = getAiProvider();
+  aiProviderSelect.value = provider;
+  deepseekFields.style.display = provider === 'deepseek' ? 'block' : 'none';
+  bailianFields.style.display = provider === 'bailian' ? 'block' : 'none';
   apiKeyInput.value = getDeepSeekKey();
+  bailianKeyInput.value = getBailianKey();
+  bailianModelSelect.value = getBailianModel();
+  ttsVoiceSelect.value = getTtsVoice();
   systemPromptInput.value = getSystemPrompt();
   settingsMsg.textContent = '';
   settingsMsg.className = 'status-msg';
@@ -1284,18 +1836,41 @@ settingsOverlay.addEventListener('click', (e) => {
 });
 
 btnSaveKey.addEventListener('click', () => {
-  const key = apiKeyInput.value.trim();
+  const provider = aiProviderSelect.value;
+  const dsKey = apiKeyInput.value.trim();
+  const blKey = bailianKeyInput.value.trim();
+  const blModel = bailianModelSelect.value;
+  const ttsVoice = ttsVoiceSelect.value;
   const prompt = systemPromptInput.value.trim();
-  if (key && !key.startsWith('sk-')) {
-    settingsMsg.textContent = '⚠️ API Key 格式不正确，应以 sk- 开头';
+
+  // 验证 Key 格式
+  if (provider === 'deepseek' && dsKey && !dsKey.startsWith('sk-')) {
+    settingsMsg.textContent = '⚠️ DeepSeek Key 格式不正确，应以 sk- 开头';
     settingsMsg.className = 'status-msg warn';
     return;
   }
-  if (key) localStorage.setItem('deepseek_api_key', key);
+  if (provider === 'bailian' && blKey && !blKey.startsWith('sk-')) {
+    settingsMsg.textContent = '⚠️ 百炼 Key 格式不正确，应以 sk- 开头';
+    settingsMsg.className = 'status-msg warn';
+    return;
+  }
+
+  // 保存
+  localStorage.setItem('ai_provider', provider);
+  if (dsKey) localStorage.setItem('deepseek_api_key', dsKey);
   else localStorage.removeItem('deepseek_api_key');
-  if (prompt) localStorage.setItem('deepseek_system_prompt', prompt);
+  if (blKey) localStorage.setItem('bailian_api_key', blKey);
+  else localStorage.removeItem('bailian_api_key');
+  localStorage.setItem('bailian_model', blModel);
+  localStorage.setItem('tts_voice', ttsVoice);
+  if (prompt) localStorage.setItem('ai_system_prompt', prompt);
+  else localStorage.removeItem('ai_system_prompt');
+
   updateAiStatus();
-  settingsMsg.textContent = key ? '✅ 设置已保存，DeepSeek AI 已启用' : '✅ Key 已清除，使用本地知识库';
+  initSpeechRecognition(); // Key 变化后刷新语音识别状态
+  const label = provider === 'bailian' ? '百炼 AI' : 'DeepSeek AI';
+  const hasKey = provider === 'bailian' ? blKey : dsKey;
+  settingsMsg.textContent = hasKey ? `✅ 设置已保存，${label} 已启用` : '✅ Key 已清除，使用本地知识库';
   settingsMsg.className = 'status-msg ok';
   // 清除旧对话历史（角色可能变了）
   state.conversationHistory = [];
@@ -1304,15 +1879,34 @@ btnSaveKey.addEventListener('click', () => {
 
 btnClearKey.addEventListener('click', () => {
   apiKeyInput.value = '';
+  bailianKeyInput.value = '';
   localStorage.removeItem('deepseek_api_key');
+  localStorage.removeItem('bailian_api_key');
+  localStorage.removeItem('bailian_model');
+  localStorage.removeItem('tts_voice');
+  localStorage.removeItem('ai_provider');
   updateAiStatus();
+  initSpeechRecognition(); // Key 清除后刷新语音识别状态
   state.conversationHistory = [];
-  settingsMsg.textContent = '✅ Key 已清除，使用本地知识库';
+  settingsMsg.textContent = '✅ 全部 Key 已清除，使用本地知识库';
   settingsMsg.className = 'status-msg ok';
 });
 
-// ========== 启动 ==========
-function init() {
+// ========== 启动按钮：解锁音频权限后初始化 ==========
+launchBtn.addEventListener('click', () => {
+  // 1. 解锁 AudioContext
+  ensureAudioCtx();
+
+  // 2. 隐藏遮罩
+  launchOverlay.classList.add('fade-out');
+  setTimeout(() => { launchOverlay.style.display = 'none'; }, 700);
+
+  // 3. 初始化应用
+  initApp();
+});
+
+// ========== 应用初始化（由启动按钮触发） ==========
+function initApp() {
   resizeCanvas();
   startCamera();
   initSpeechRecognition();
@@ -1322,23 +1916,22 @@ function init() {
   requestAnimationFrame(animate);
 
   // 默认开启自动语音对话
-  if (state.recognition) {
+  const apiKey = localStorage.getItem('bailian_api_key') || localStorage.getItem('deepseek_api_key') || '';
+  if (apiKey) {
     autoBtn.classList.remove('off');
     autoBtn.textContent = '🔄 自动对话中';
     setTimeout(() => {
-      try { state.recognition.start(); } catch(_) {
-        showToast('语音启动失败，请点击按钮重试或手动输入');
-      }
+      startListening();
     }, 1200);
   }
 }
 
-init();
-
-console.log('🏛️  千年一晤 v7.3 — 知识库优先 + DeepSeek AI 备用');
-console.log('  - AI 模型：DeepSeek V3（需配置 Key）');
-console.log('  - 语音合成：Edge TTS WebSocket');
-console.log('  - 自动对话模式：已开启');
+console.log('🏛️  千年一晤 v7.8 — 修复音色名 + CosyVoice TTS + Paraformer 语音识别');
+console.log('  - 语音识别：阿里百炼 Paraformer WebSocket');
+console.log('  - 语音合成：阿里百炼 CosyVoice v2（libai_v2/longfei_v2等有效音色）');
+console.log('  - AI 模型：DeepSeek V3 / 通义千问（可切换）');
+console.log('  - TTS 降级：CosyVoice → 浏览器 speechSynthesis');
+console.log('  - 播放优先：HTML Audio → AudioContext');
 </script>
 </body>
 </html>
